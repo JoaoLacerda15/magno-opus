@@ -10,14 +10,22 @@ export default function LoginScreen() {
   const route = useRoute();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (route.params?.message) {
-      Alert.alert("Sucesso", route.params.message);
+      // 💡 Alert.alert("Sucesso", route.params.message);
     }
   }, [route.params]);
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Erro", "Por favor, preencha o email e a senha.");
+      return;
+    }
+
+    setIsLoading(true);
+
     try {
       const user = await auth.login(email, password);
 
@@ -32,7 +40,10 @@ export default function LoginScreen() {
       });
 
     } catch (e) {
-      Alert.alert("Erro", e.message);
+      Alert.alert("Erro", e.message || "Ocorreu um erro desconhecido.");
+      console.error(e);
+    } finally {
+      setIsLoading(false);
     }
   };
 

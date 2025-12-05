@@ -15,6 +15,10 @@ export default class AuthService {
   // ---------------------------------------
   async register({ nome, email, password, userType, cpf, cep, tags }) {
 
+    if (!email || !password || !nome) {
+      throw new Error("Nome, Email e Senha são obrigatórios.");
+    }
+
     const userKey = email.replace(/\./g, "_");
     const userRef = ref(database, `users/${userKey}`);
 
@@ -24,7 +28,7 @@ export default class AuthService {
     await set(userRef, {
       nome,
       email,
-      password, // ⚠️ sem hash (apenas protótipo)
+      password: password,
       userType,
       cpf: cpf || null,
       cep: cep || null,
@@ -40,11 +44,13 @@ export default class AuthService {
   // ---------------------------------------
   async login(email, password) {
     try {
-      const userKey = email.replace(/\./g, "_");
-      console.log(userKey);
-      const userRef = ref(database, `users/${userKey}`);
 
-      userRef ? console.log("Existe") : console.log("Não existe");
+      if (!email || !password) {
+        throw new Error("Email e Senha são obrigatórios.");
+      }
+
+      const userKey = email.replace(/\./g, "_");
+      const userRef = ref(database, `users/${userKey}`);
 
       const snapshot = await get(userRef);
       if (!snapshot.exists()) throw new Error("Email não cadastrado");
@@ -56,9 +62,11 @@ export default class AuthService {
       }
 
       // Retorna o ID junto
-      return { id: userKey, ...userData, };
+      const { password: _, ...userInfo } = userData;
+      return { id: userKey, ...userInfo }
     } catch(er) {
-      console.error(er);
+      console.error("Erro no login:", er.message);
+      throw er;
     }
   }
 
