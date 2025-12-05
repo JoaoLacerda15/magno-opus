@@ -24,7 +24,7 @@ export const buttonsStyles = StyleSheet.create({
     //botões com width alongado, como nas tela de Escambos Feitos
     longButton: {
         width: '100%',
-        backgroundColor: colors.red,
+        backgroundColor: colors.blue,
         marginTop: 10 * scale,
         borderRadius: 8 * scale,
         paddingVertical: 10 * scale,

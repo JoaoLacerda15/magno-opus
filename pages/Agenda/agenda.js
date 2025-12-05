@@ -7,8 +7,9 @@ import {
     TouchableOpacity,
     ScrollView,
     StyleSheet,
-    Linking,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native"; // ✅ Import necessário para navegar
+import BarraNavegacao from "../../components/navbar";
 
 export default function Agenda() {
     return (
@@ -17,13 +18,15 @@ export default function Agenda() {
         </SafeAreaView>
     );
 
-
     function HomePage() {
+        const navigation = useNavigation(); // ✅ Hook que permite usar navigation dentro do componente
+
         const categories = [
             {
                 texts: ["Período de Serviço", "8:00 - 13:30"],
                 buttonLabel: "Adicionar\nPeríodo",
-                buttonUrl: "https://contato.example.com",
+                // ✅ Em vez de URL, usamos uma flag para indicar que navega internamente
+                navigationTarget: "criacaoformulario",
             },
             {
                 texts: [
@@ -32,16 +35,21 @@ export default function Agenda() {
                     "Descrição: Consertar furos de paredes",
                 ],
                 buttonLabel: "Adicionar\nCompromisso",
-                buttonUrl: "https://suporte.example.com",
+                navigationTarget: "criacaoformulario",
             },
         ];
 
-        const buildInfoBox = ({ texts, buttonLabel, buttonUrl }) => (
+        // ✅ Atualizamos a função para usar navigation.navigate
+        const buildInfoBox = ({ texts, buttonLabel, navigationTarget }) => (
             <View style={styles.infoBox}>
                 {/* Botão à esquerda */}
                 <TouchableOpacity
                     style={styles.infoButton}
-                    onPress={() => Linking.openURL(buttonUrl)}
+                    onPress={() => {
+                        if (navigationTarget) {
+                            navigation.navigate(navigationTarget);
+                        }
+                    }}
                 >
                     <Text style={styles.infoButtonText}>{buttonLabel}</Text>
                 </TouchableOpacity>
@@ -65,15 +73,7 @@ export default function Agenda() {
 
         return (
             <View style={{ flex: 1 }}>
-                {/* AppBar fake */}
-                <View style={styles.appBar}>
-                    <TextInput
-                        placeholder="Pesquisar..."
-                        style={styles.searchInput}
-                        placeholderTextColor="#666"
-                    />
-                </View>
-
+               
                 {/* Conteúdo */}
                 <ScrollView style={{ padding: 16 }}>
                     <Text style={styles.sectionTitle}>Agenda</Text>
@@ -85,7 +85,6 @@ export default function Agenda() {
             </View>
         );
     }
-
 }
 
 const styles = StyleSheet.create({

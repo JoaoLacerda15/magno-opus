@@ -1,12 +1,12 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from "react-native";
-import BarraNavegacao from ".././components/navbar";
+import BarraNavegacao from "../../components/navbar";
 
 export default function PerfilAPage({ navigation }) {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.card}>
-        <Image source={require("../assets/profile.png")} style={styles.avatar} />
+        <Image source={require("../../assets/profile.png")} style={styles.avatar} />
         <Text style={[styles.bold, { color: "green" }]}>Concluído</Text>
         <Text style={styles.star}>⭐</Text>
         <Text style={styles.bold}>4.5</Text>

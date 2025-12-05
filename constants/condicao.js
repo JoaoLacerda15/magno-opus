@@ -7,7 +7,7 @@ const scale = width / baseWidth;
 
 export const conditionStyles = StyleSheet.create({
     ratingContainer: {
-        backgroundColor: colors.green,
+        backgroundColor: colors.blue,
         paddingHorizontal: 10,
         paddingVertical: 4,
         alignSelf: 'flex-start',

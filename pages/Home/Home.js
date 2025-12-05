@@ -1,5 +1,4 @@
-//teste
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   ScrollView,
   View,
@@ -7,44 +6,68 @@ import {
   Image,
   TouchableOpacity,
   TextInput,
-  Linking,
   StyleSheet,
   Animated,
   Dimensions,
 } from "react-native";
+
 import BarraNavegacao from "../../components/navbar";
 import Icon from "react-native-vector-icons/MaterialIcons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 
+import AuthService from "../../services/authService";
+const auth = new AuthService();
 
 const { width } = Dimensions.get("window");
 
 export default function Home() {
-  const categories = [
-    {
-      label: "Limpeza doméstica",
-      url: "https://example.com",
-      color: "#1ab6d1",
-      image: require("../../assets/broom.png"),
-    },
-    {
-      label: "Suporte Técnico",
-      url: "https://example.com",
-      color: "#4226e2",
-      image: require("../../assets/cpu.png"),
-    },
-    {
-      label: "Pedreiro",
-      url: "https://example.com",
-      color: "#d6960a",
-      image: require("../../assets/hammer.png"),
-    },
+  const navigation = useNavigation();
+  const route = useRoute();
+
+  // 🆕 RECEBE O ID DO LOGIN
+  const userId = route.params?.userId || null;
+
+  // -------------------------------
+  // 🔍 SISTEMA DE BUSCA
+  // -------------------------------
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState([]);
+  const [selectedTag, setSelectedTag] = useState(null);
+
+  const tagsDisponiveis = [
+    "limpeza",
+    "pedreiro",
+    "técnico",
+    "jardim",
+    "pintura",
+    "reforma",
+    "Marceneiro", 
+    "Encanador", 
+    "Eletricista",
   ];
 
-  const navigation = useNavigation();
-  const openLink = (url) => Linking.openURL(url);
+  const executarBusca = async (query, tag = selectedTag) => {
+    const data = await auth.searchUsers(query, tag);
+    setResults(data);
+  };
 
-  // Estado do menu lateral
+  const handleSearch = (text) => {
+    setSearch(text);
+  };
+
+  const buscarApertarEnter = () => {
+    executarBusca(search);
+  };
+
+  const filtrarPorTag = (tag) => {
+    const novaTag = tag === selectedTag ? null : tag;
+    setSelectedTag(novaTag);
+    executarBusca(search, novaTag);
+  };
+
+  // -------------------------------
+  // MENU LATERAL + DADOS DO USUÁRIO LOGADO
+  // -------------------------------
   const [menuVisible, setMenuVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(width)).current;
 
@@ -65,49 +88,96 @@ export default function Home() {
     }
   };
 
-  // Cada item do menu leva a uma tela diferente
   const menuItems = [
     { label: "Configuração", icon: "settings", route: "configuracoes" },
-    { label: "Histórico", icon: "history", route: "login" },
+    { label: "Histórico", icon: "history", route: "conversasScreen" },
     { label: "Estatísticas", icon: "bar-chart", route: "Estatisticas" },
-    { label: "Premium", icon: "star", route: "premium" },
+    { label: "Agenda", icon: "event", route: "calendario" },
     { label: "Favoritos", icon: "favorite", route: "notification" },
-    { label: "Gerenciar Perfil", icon: "manage-accounts", route: "perfilPP" },
+
+    // 🆕 ENVIA userId PARA O PERFIL
+    { label: "Gerenciar Perfil", icon: "manage-accounts", route: "perfilPP", params: { userId } },
   ];
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={styles.container}>
-        {/* Barra de busca */}
+
+        {/* 🔍 BARRA DE PESQUISA */}
         <View style={styles.searchBar}>
           <Icon name="search" size={24} color="gray" />
+
           <TextInput
-            placeholder="Pesquisar..."
+            placeholder="Pesquisar nome ou serviço..."
             style={{ flex: 1, marginLeft: 8 }}
+            value={search}
+            onChangeText={handleSearch}
+            onSubmitEditing={buscarApertarEnter}
+            returnKeyType="search"
           />
 
-          {/* Botão do sino que abre o menu lateral */}
           <TouchableOpacity onPress={toggleMenu}>
             <Icon name="settings" size={26} color="black" />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionTitle}>Categorias Populares</Text>
-        <View style={styles.wrap}>
-          {categories.map((cat, i) => (
+        {/* TAGS DE FILTRO */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+          {tagsDisponiveis.map((tag, index) => (
             <TouchableOpacity
-              key={i}
-              style={[styles.categoryBtn, { backgroundColor: cat.color }]}
-              onPress={() => navigation.navigate("teste")}
+              key={index}
+              style={[
+                styles.tagButton,
+                selectedTag === tag && styles.tagButtonAtivo,
+              ]}
+              onPress={() => filtrarPorTag(tag)}
             >
-              <Image source={cat.image} style={{ width: 32, height: 32 }} />
-              <Text style={styles.categoryLabel}>{cat.label}</Text>
+              <Text
+                style={[
+                  styles.tagText,
+                  selectedTag === tag && styles.tagTextAtivo,
+                ]}
+              >
+                {tag}
+              </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
+
+        {/* RESULTADOS */}
+        {results.length > 0 && (
+          <View style={{ marginBottom: 20 }}>
+            <Text style={styles.sectionTitle}>Resultados da Busca:</Text>
+
+            {results.map((user, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.resultItem}
+                onPress={() =>
+                  navigation.navigate("perfilDoTrabalhador", { user })
+                }
+              >
+                <Text style={{ fontSize: 16, fontWeight: "bold" }}>
+                  {user.nome}
+                </Text>
+                <Text style={{ color: "gray" }}>{user.email}</Text>
+
+                {user.tags?.length > 0 && (
+                  <Text style={{ color: "#666", marginTop: 4 }}>
+                    Tags: {user.tags.join(", ")}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+
       </ScrollView>
-      <BarraNavegacao/>
-      {/* Menu lateral*/}
+
+      <BarraNavegacao />
+
+      {/* MENU LATERAL */}
       {menuVisible && (
         <TouchableOpacity
           activeOpacity={1}
@@ -120,7 +190,6 @@ export default function Home() {
               { transform: [{ translateX: slideAnim }] },
             ]}
           >
-            {/* Cabeçalho do menu */}
             <View style={styles.menuHeader}>
               <Text style={styles.menuTitle}>Menu</Text>
               <TouchableOpacity onPress={toggleMenu}>
@@ -128,7 +197,6 @@ export default function Home() {
               </TouchableOpacity>
             </View>
 
-            {/* Itens com rotas individuais */}
             <View style={styles.menuContent}>
               {menuItems.map((item, index) => (
                 <TouchableOpacity
@@ -136,7 +204,7 @@ export default function Home() {
                   style={styles.menuItem}
                   onPress={() => {
                     toggleMenu();
-                    navigation.navigate(item.route);
+                    navigation.navigate(item.route, item.params || {});
                   }}
                 >
                   <Icon name={item.icon} size={24} color="#444" />
@@ -150,8 +218,10 @@ export default function Home() {
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: "#fff" },
+
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -161,33 +231,42 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 16,
   },
+
   sectionTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    marginVertical: 16,
-  },
-  wrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  categoryBtn: {
-    width: 120,
-    height: 100,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 20,
-    margin: 8,
-  },
-  categoryLabel: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#000",
-    textAlign: "center",
+    marginVertical: 10,
   },
 
-  // Estilos do menu lateral
+  resultItem: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+
+  tagButton: {
+    backgroundColor: "#eee",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+
+  tagButtonAtivo: {
+    backgroundColor: "#007bff",
+  },
+
+  tagText: {
+    color: "#555",
+    fontWeight: "bold",
+  },
+
+  tagTextAtivo: {
+    color: "#fff",
+  },
+
   overlay: {
     position: "absolute",
     top: 0,
@@ -196,6 +275,7 @@ const styles = StyleSheet.create({
     left: 0,
     backgroundColor: "rgba(0,0,0,0.3)",
   },
+
   sideMenu: {
     position: "absolute",
     top: 0,
@@ -206,6 +286,7 @@ const styles = StyleSheet.create({
     padding: 20,
     elevation: 10,
   },
+
   menuHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -214,18 +295,22 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ddd",
     paddingBottom: 10,
   },
+
   menuTitle: {
     fontSize: 18,
     fontWeight: "bold",
   },
+
   menuContent: {
     marginTop: 20,
   },
+
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
   },
+
   menuText: {
     marginLeft: 12,
     fontSize: 16,

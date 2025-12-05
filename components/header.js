@@ -16,7 +16,7 @@ export const headerStyles = StyleSheet.create({
         paddingTop: 10 * scale,
         paddingBottom: 10 * scale,
         paddingHorizontal: 15 * scale,
-        backgroundColor: colors.white
+        backgroundColor: colors.blue
     },
 
     backButton: {
@@ -28,7 +28,7 @@ export const headerStyles = StyleSheet.create({
     headerTitle: {
         fontSize: 22 * scale,
         fontWeight: 'bold',
-        color: colors.darkGray,
+        color: colors.blue,
         textAlign: 'center',
         flex: 1,
     }

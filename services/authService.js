@@ -1,21 +1,30 @@
-import { ref, set, get, child } from "firebase/database";
-import { database } from "./firebaseConfig";
+import { ref, set, get } from "firebase/database";
+import { database } from "../firebase/firebaseService";
+
+// Função opcional para remover acentos (normaliza busca)
+const normalize = (str) =>
+  str
+    ?.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase() || "";
 
 export default class AuthService {
-  // Registro no Realtime Database
-  async register({ email, password, userType, cpf, cep, tags }) {
-    const userRef = ref(database, `users/${email.replace(".", "_")}`);
 
-    // Verifica se usuário já existe
+  // ---------------------------------------
+  // 🟦 REGISTRO DE USUÁRIO
+  // ---------------------------------------
+  async register({ nome, email, password, userType, cpf, cep, tags }) {
+
+    const userKey = email.replace(/\./g, "_");
+    const userRef = ref(database, `users/${userKey}`);
+
     const snapshot = await get(userRef);
-    if (snapshot.exists()) {
-      throw new Error("Email já cadastrado");
-    }
+    if (snapshot.exists()) throw new Error("Email já cadastrado");
 
-    // Salva usuário
     await set(userRef, {
+      nome,
       email,
-      password, // ⚠️ texto puro, só protótipo
+      password, // ⚠️ sem hash (apenas protótipo)
       userType,
       cpf: cpf || null,
       cep: cep || null,
@@ -26,21 +35,76 @@ export default class AuthService {
     return true;
   }
 
-  // Login no Realtime Database
+  // ---------------------------------------
+  // 🟦 LOGIN
+  // ---------------------------------------
   async login(email, password) {
-    const userRef = ref(database, `users/${email.replace(".", "_")}`);
+    try {
+      const userKey = email.replace(/\./g, "_");
+      console.log(userKey);
+      const userRef = ref(database, `users/${userKey}`);
+
+      userRef ? console.log("Existe") : console.log("Não existe");
+
+      const snapshot = await get(userRef);
+      if (!snapshot.exists()) throw new Error("Email não cadastrado");
+
+      const userData = snapshot.val();
+
+      if (userData.password !== password) {
+        throw new Error("Senha incorreta");
+      }
+
+      // Retorna o ID junto
+      return { id: userKey, ...userData, };
+    } catch(er) {
+      console.error(er);
+    }
+  }
+
+  // ---------------------------------------
+  // 🔵 BUSCAR USUÁRIO POR ID
+  // ---------------------------------------
+  async getUserById(userId) {
+    if (!userId) throw new Error("ID inválido");
+
+    const userRef = ref(database, `users/${userId}`);
     const snapshot = await get(userRef);
 
     if (!snapshot.exists()) {
-      throw new Error("Email não cadastrado");
+      throw new Error("Usuário não encontrado");
     }
 
-    const userData = snapshot.val();
+    return snapshot.val();
+  }
 
-    if (userData.password !== password) {
-      throw new Error("Senha incorreta");
-    }
+  // ---------------------------------------
+  // 🔍 BUSCA AVANÇADA (nome + email + tags)
+  // ---------------------------------------
+  async searchUsers(query, selectedTag = null) {
+    const dbRef = ref(database, "users");
+    const snapshot = await get(dbRef);
 
-    return userData;
+    if (!snapshot.exists()) return [];
+
+    const usersObj = snapshot.val();
+    const users = Object.values(usersObj);
+
+    const q = normalize(query.trim());
+
+    return users.filter((user) => {
+      const nome = normalize(user.nome);
+      const email = normalize(user.email);
+      const tags = user.tags?.map((t) => normalize(t)) || [];
+
+      const nomeMatch = nome.includes(q);
+      const emailMatch = email.includes(q);
+      const tagMatch = tags.some((t) => t.includes(q));
+
+      const selectedTagMatch =
+        selectedTag ? tags.includes(normalize(selectedTag)) : true;
+
+      return (nomeMatch || emailMatch || tagMatch) && selectedTagMatch;
+    });
   }
 }

@@ -4,9 +4,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import Routes from './navigation';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { Provider as PaperProvider } from 'react-native-paper'; // 👈 IMPORTANTE
+
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from 'expo-system-ui';
-
 
 export default function App() {
   useEffect(() => {
@@ -23,7 +24,7 @@ export default function App() {
     const configureNavigationBar = async () => {
       try {
         await NavigationBar.setButtonStyleAsync('light');
-        await SystemUI.setBackgroundColorAsync('#FF0045');
+        await SystemUI.setBackgroundColorAsync('#1a94f8ff');
       } catch (error) {
         console.warn('Erro ao configurar NavigationBar:', error);
       }
@@ -33,7 +34,7 @@ export default function App() {
   }, []);
 
   return (
-    
+    <PaperProvider> {/* 👈 OBRIGATÓRIO PARA O MODAL FUNCIONAR */}
       <SafeAreaProvider>
         <NavigationContainer>
           <StatusBar
@@ -44,6 +45,6 @@ export default function App() {
           <Routes />
         </NavigationContainer>
       </SafeAreaProvider>
-    
+    </PaperProvider>
   );
 }

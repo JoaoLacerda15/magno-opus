@@ -53,11 +53,11 @@ export const popupStyles = StyleSheet.create({
         alignItems: 'center',
     },
     noButton: {
-        backgroundColor: colors.orange,
+        backgroundColor: colors.blue,
         marginRight: 10,
     },
     yesButton: {
-        backgroundColor: colors.red,
+        backgroundColor: colors.blue,
     },
     noButtonText: {
         color: colors.white,
@@ -66,15 +66,15 @@ export const popupStyles = StyleSheet.create({
     },
     yesButtonText: {
         fontFamily: 'Baloo2_700Bold',
-        color: colors.white,
+        color: colors.blue,
         fontSize: 20 * scale,
     },
     okButton: {
-        backgroundColor: colors.orange,
+        backgroundColor: colors.blue,
     },
     okButtonText: {
         fontFamily: 'Baloo2_700Bold',
-        color: colors.white,
+        color: colors.blue,
         fontSize: 20 * scale
     },
 });
