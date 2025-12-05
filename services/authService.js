@@ -1,118 +1,163 @@
 import { ref, set, get } from "firebase/database";
 import { database } from "../firebase/firebaseService";
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ NOVO: Importação para persistência de sessão
 
 // Função opcional para remover acentos (normaliza busca)
 const normalize = (str) =>
-  str
-    ?.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase() || "";
+  str
+    ?.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase() || "";
 
 export default class AuthService {
 
-  // ---------------------------------------
-  // 🟦 REGISTRO DE USUÁRIO
-  // ---------------------------------------
-  async register({ nome, email, password, userType, cpf, cep, tags }) {
+  // ---------------------------------------
+  // 🔑 SALVAR SESSÃO
+  // ---------------------------------------
+  async saveLoggedUserId(userId) {
+    try {
+      // Salva a chave do usuário (email_substituido) para persistência
+      await AsyncStorage.setItem('user_id', userId);
+      return true;
+    } catch (error) {
+      console.error("Erro ao salvar ID no AsyncStorage:", error);
+      return false;
+    }
+  }
 
-    if (!email || !password || !nome) {
-      throw new Error("Nome, Email e Senha são obrigatórios.");
-    }
+  // ---------------------------------------
+  // 🔑 OBTER SESSÃO (CORRIGE O ERRO 'is not a function')
+  // ---------------------------------------
+  async getLoggedUserId() {
+    try {
+      const userId = await AsyncStorage.getItem('user_id');
+      return userId;
+    } catch (error) {
+      console.error("Erro ao ler ID do AsyncStorage:", error);
+      return null;
+    }
+  }
+  
+  // ---------------------------------------
+  // 🔑 REMOVER SESSÃO (PARA FUNÇÃO DE LOGOUT)
+  // ---------------------------------------
+  async clearSession() {
+    try {
+      await AsyncStorage.removeItem('user_id');
+      return true;
+    } catch (error) {
+      console.error("Erro ao remover sessão:", error);
+      return false;
+    }
+  }
 
-    const userKey = email.replace(/\./g, "_");
-    const userRef = ref(database, `users/${userKey}`);
 
-    const snapshot = await get(userRef);
-    if (snapshot.exists()) throw new Error("Email já cadastrado");
+  // ---------------------------------------
+  // 🟦 REGISTRO DE USUÁRIO (NÃO ALTERADO)
+  // ---------------------------------------
+  async register({ nome, email, password, userType, cpf, cep, tags }) {
 
-    await set(userRef, {
-      nome,
-      email,
-      password: password,
-      userType,
-      cpf: cpf || null,
-      cep: cep || null,
-      tags: tags || [],
-      createdAt: new Date().toISOString(),
-    });
+    if (!email || !password || !nome) {
+      throw new Error("Nome, Email e Senha são obrigatórios.");
+    }
 
-    return true;
-  }
+    const userKey = email.replace(/\./g, "_");
+    const userRef = ref(database, `users/${userKey}`);
 
-  // ---------------------------------------
-  // 🟦 LOGIN
-  // ---------------------------------------
-  async login(email, password) {
-    try {
+    const snapshot = await get(userRef);
+    if (snapshot.exists()) throw new Error("Email já cadastrado");
 
-      if (!email || !password) {
-        throw new Error("Email e Senha são obrigatórios.");
-      }
+    await set(userRef, {
+      nome,
+      email,
+      password: password,
+      userType,
+      cpf: cpf || null,
+      cep: cep || null,
+      tags: tags || [],
+      createdAt: new Date().toISOString(),
+    });
 
-      const userKey = email.replace(/\./g, "_");
-      const userRef = ref(database, `users/${userKey}`);
+    return true;
+  }
 
-      const snapshot = await get(userRef);
-      if (!snapshot.exists()) throw new Error("Email não cadastrado");
+  // ---------------------------------------
+  // 🟦 LOGIN (TRECHO ATUALIZADO)
+  // ---------------------------------------
+  async login(email, password) {
+    try {
 
-      const userData = snapshot.val();
+      if (!email || !password) {
+        throw new Error("Email e Senha são obrigatórios.");
+      }
 
-      if (userData.password !== password) {
-        throw new Error("Senha incorreta");
-      }
+      const userKey = email.replace(/\./g, "_");
+      const userRef = ref(database, `users/${userKey}`);
 
-      // Retorna o ID junto
-      const { password: _, ...userInfo } = userData;
-      return { id: userKey, ...userInfo }
-    } catch(er) {
-      console.error("Erro no login:", er.message);
-      throw er;
-    }
-  }
+      const snapshot = await get(userRef);
+      if (!snapshot.exists()) throw new Error("Email não cadastrado");
 
-  // ---------------------------------------
-  // 🔵 BUSCAR USUÁRIO POR ID
-  // ---------------------------------------
-  async getUserById(userId) {
-    if (!userId) throw new Error("ID inválido");
+      const userData = snapshot.val();
 
-    const userRef = ref(database, `users/${userId}`);
-    const snapshot = await get(userRef);
+      if (userData.password !== password) {
+        throw new Error("Senha incorreta");
+      }
 
-    if (!snapshot.exists()) {
-      throw new Error("Usuário não encontrado");
-    }
+      // ✅ 1. SALVAR O ID APÓS O LOGIN BEM-SUCEDIDO
+      await this.saveLoggedUserId(userKey); 
 
-    return snapshot.val();
-  }
+      // Retorna o ID junto
+      const { password: _, ...userInfo } = userData;
+      return { id: userKey, ...userInfo }
+    } catch(er) {
+      console.error("Erro no login:", er.message);
+      throw er;
+    }
+  }
 
-  // ---------------------------------------
-  // 🔍 BUSCA AVANÇADA (nome + email + tags)
-  // ---------------------------------------
-  async searchUsers(query, selectedTag = null) {
-    const dbRef = ref(database, "users");
-    const snapshot = await get(dbRef);
+  // ---------------------------------------
+  // 🔵 BUSCAR USUÁRIO POR ID (NÃO ALTERADO)
+  // ---------------------------------------
+  async getUserById(userId) {
+    if (!userId) throw new Error("ID inválido");
 
-    if (!snapshot.exists()) return [];
+    const userRef = ref(database, `users/${userId}`);
+    const snapshot = await get(userRef);
 
-    const usersObj = snapshot.val();
-    const users = Object.values(usersObj);
+    if (!snapshot.exists()) {
+      throw new Error("Usuário não encontrado");
+    }
 
-    const q = normalize(query.trim());
+    return snapshot.val();
+  }
 
-    return users.filter((user) => {
-      const nome = normalize(user.nome);
-      const email = normalize(user.email);
-      const tags = user.tags?.map((t) => normalize(t)) || [];
+  // ---------------------------------------
+  // 🔍 BUSCA AVANÇADA (NÃO ALTERADO)
+  // ---------------------------------------
+  async searchUsers(query, selectedTag = null) {
+    const dbRef = ref(database, "users");
+    const snapshot = await get(dbRef);
 
-      const nomeMatch = nome.includes(q);
-      const emailMatch = email.includes(q);
-      const tagMatch = tags.some((t) => t.includes(q));
+    if (!snapshot.exists()) return [];
 
-      const selectedTagMatch =
-        selectedTag ? tags.includes(normalize(selectedTag)) : true;
+    const usersObj = snapshot.val();
+    const users = Object.values(usersObj);
 
-      return (nomeMatch || emailMatch || tagMatch) && selectedTagMatch;
-    });
-  }
+    const q = normalize(query.trim());
+
+    return users.filter((user) => {
+      const nome = normalize(user.nome);
+      const email = normalize(user.email);
+      const tags = user.tags?.map((t) => normalize(t)) || [];
+
+      const nomeMatch = nome.includes(q);
+      const emailMatch = email.includes(q);
+      const tagMatch = tags.some((t) => t.includes(q));
+
+      const selectedTagMatch =
+        selectedTag ? tags.includes(normalize(selectedTag)) : true;
+
+      return (nomeMatch || emailMatch || tagMatch) && selectedTagMatch;
+    });
+  }
 }
