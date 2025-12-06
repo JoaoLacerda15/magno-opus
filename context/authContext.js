@@ -1,3 +1,4 @@
+// Importações
 import { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, get } from 'firebase/database';
@@ -9,76 +10,82 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Função auxiliar para pegar dados de um nó do DB
+    const fetchNode = async (path) => {
+        console.log(`Buscando dados de: ${path}`);
+        const snapshot = await get(ref(realtimeDB, path));
+        const data = snapshot.exists() ? snapshot.val() : {};
+        console.log(`Dados recebidos de ${path}:`, data);
+        return data;
+    };
+
     useEffect(() => {
-        let isMounted = true; // flag para evitar state updates depois do unmount
+        let active = true;
 
         const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-            const handleUser = async () => {
+            console.log("onAuthStateChanged disparado. Usuário:", firebaseUser);
+
+            const processUser = async () => {
                 try {
-                    if (firebaseUser) {
-                        await firebaseUser.reload();
-
-                        if (!firebaseUser.emailVerified) {
-                            console.log('Usuário não verificou o email.');
-                            if (isMounted) setUser(null);
-                            return;
-                        }
-
-                        const uid = firebaseUser.uid;
-
-                        // login
-                        const loginRef = ref(realtimeDB, `logins/${uid}`);
-                        const loginSnap = await get(loginRef);
-                        const loginData = loginSnap.exists() ? loginSnap.val() : {};
-
-                        // dados do usuário
-                        const usuarioRef = ref(realtimeDB, `usuarios/${uid}`);
-                        const usuarioSnap = await get(usuarioRef);
-                        const usuarioData = usuarioSnap.exists() ? usuarioSnap.val() : {};
-
-                        // dados do endereço
-                        const enderecoRef = ref(realtimeDB, `enderecos/${uid}`);
-                        const enderecoSnap = await get(enderecoRef);
-                        const enderecoData = enderecoSnap.exists() ? enderecoSnap.val() : {};
-
-                        // junta tudo
-                        const dadosCompletos = {
-                            uid,
-                            email: loginData.email ?? firebaseUser.email,
-                            ...usuarioData,
-                            ...enderecoData,
-                        };
-
-                        if (isMounted) setUser(dadosCompletos);
-                    } else {
-                        if (isMounted) setUser(null);
+                    if (!firebaseUser) {
+                        console.log("Nenhum usuário logado.");
+                        if (active) setUser(null);
+                        return;
                     }
-                } catch (error) {
-                    console.error('Erro ao buscar dados do usuário:', error);
-                    if (isMounted) setUser(null);
+
+                    console.log("Recarregando usuário Firebase...");
+                    await firebaseUser.reload();
+
+                    if (!firebaseUser.emailVerified) {
+                        console.log("Email não verificado.");
+                        if (active) setUser(null);
+                        return;
+                    }
+
+                    const uid = firebaseUser.uid;
+                    console.log("UID do usuário:", uid);
+
+                    const [loginData, usuarioData, enderecoData] = await Promise.all([
+                        fetchNode(`logins/${uid}`),
+                        fetchNode(`usuarios/${uid}`),
+                        fetchNode(`enderecos/${uid}`)
+                    ]);
+
+                    const dadosCompletos = {
+                        uid,
+                        email: loginData.email ?? firebaseUser.email,
+                        ...usuarioData,
+                        ...enderecoData,
+                    };
+
+                    console.log("Objeto final de dados do usuário:", dadosCompletos);
+
+                    if (active) setUser(dadosCompletos);
+
+                } catch (err) {
+                    console.error('Erro ao buscar dados do usuário:', err);
+                    if (active) setUser(null);
                 } finally {
-                    if (isMounted) setLoading(false);
+                    if (active) setLoading(false);
                 }
             };
 
-
-            handleUser();
+            processUser();
         });
 
         return () => {
-            isMounted = false;
+            active = false;
             unsubscribe();
         };
     }, []);
-
 
     const logout = async () => {
         try {
             await signOut(auth);
             setUser(null);
             return { success: true };
-        } catch (error) {
-            return { success: false, msg: error.message };
+        } catch (err) {
+            return { success: false, msg: err.message };
         }
     };
 
@@ -89,6 +96,4 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
-export const useAuth = () => {
-    return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext);
