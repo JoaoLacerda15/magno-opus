@@ -9,7 +9,9 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
+  ActivityIndicator, // Adicionado para a tela de carregamento do ID
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // ESSENCIAL PARA PERSISTÊNCIA
 
 import BarraNavegacao from "../../components/navbar";
 import Icon from "react-native-vector-icons/MaterialIcons";
@@ -24,11 +26,37 @@ export default function Home() {
   const navigation = useNavigation();
   const route = useRoute();
 
-  // 🆕 RECEBE O ID DO LOGIN
-  const userId = route.params?.userId || null;
+  // 1. ESTADO CENTRALIZADO E DE CARREGAMENTO
+  const [loggedUserId, setLoggedUserId] = useState(route.params?.userId || null);
+  const [loadingId, setLoadingId] = useState(true); // Controla se o ID já foi buscado
 
   // -------------------------------
-  // 🔍 SISTEMA DE BUSCA
+  // ⏳ RECUPERAÇÃO DO ID PERSISTENTE
+  // -------------------------------
+  useEffect(() => {
+    const getPersistentId = async () => {
+      setLoadingId(true);
+      try {
+        if (!loggedUserId) {
+          const storedId = await AsyncStorage.getItem("userId");
+          if (storedId) {
+            console.log("✅ ID recuperado do AsyncStorage:", storedId);
+            setLoggedUserId(storedId);
+          } else {
+            console.warn("⚠️ Nenhum ID encontrado. Usuário pode não estar logado.");
+          }
+        }
+      } catch (e) {
+        console.error("❌ Erro ao ler AsyncStorage:", e);
+      } finally {
+        setLoadingId(false); // FIM do carregamento do ID
+      }
+    };
+    getPersistentId();
+  }, [loggedUserId]); 
+
+  // -------------------------------
+  // 🔍 SISTEMA DE BUSCA (mantido)
   // -------------------------------
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
@@ -41,8 +69,8 @@ export default function Home() {
     "jardim",
     "pintura",
     "reforma",
-    "Marceneiro", 
-    "Encanador", 
+    "Marceneiro",
+    "Encanador",
     "Eletricista",
   ];
 
@@ -66,7 +94,7 @@ export default function Home() {
   };
 
   // -------------------------------
-  // MENU LATERAL + DADOS DO USUÁRIO LOGADO
+  // MENU LATERAL (Define os itens do menu com o ID ATUALIZADO)
   // -------------------------------
   const [menuVisible, setMenuVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(width)).current;
@@ -88,6 +116,7 @@ export default function Home() {
     }
   };
 
+  // Os itens do menu são definidos AQUI para usar o estado atualizado de loggedUserId
   const menuItems = [
     { label: "Configuração", icon: "settings", route: "configuracoes" },
     { label: "Histórico", icon: "history", route: "conversasScreen" },
@@ -95,10 +124,30 @@ export default function Home() {
     { label: "Agenda", icon: "event", route: "calendario" },
     { label: "Favoritos", icon: "favorite", route: "notification" },
 
-    // 🆕 ENVIA userId PARA O PERFIL
-    { label: "Gerenciar Perfil", icon: "manage-accounts", route: "perfilPP", params: { userId } },
+    // Envia o ID PERSISTENTE (loggedUserId) para o Perfil PP
+    { 
+        label: "Gerenciar Perfil", 
+        icon: "manage-accounts", 
+        route: "perfilPP", 
+        params: { userId: loggedUserId } 
+    },
   ];
+  
+  // -------------------------------
+  // ⚠️ TELA DE CARREGAMENTO ENQUANTO BUSCA O ID
+  // -------------------------------
+  if (loadingId) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#1565C0" />
+        <Text style={styles.loadingText}>Carregando dados...</Text>
+      </View>
+    );
+  }
 
+  // -------------------------------
+  // RENDERIZAÇÃO PRINCIPAL
+  // -------------------------------
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={styles.container}>
@@ -175,7 +224,8 @@ export default function Home() {
 
       </ScrollView>
 
-      <BarraNavegacao />
+      {/* 🎯 CORREÇÃO CRUCIAL: Passa o loggedUserId para a Navbar */}
+      <BarraNavegacao userId={loggedUserId} />
 
       {/* MENU LATERAL */}
       {menuVisible && (
@@ -220,6 +270,19 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
+  // Estilo para o carregamento do ID
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#333'
+  },
+  
   container: { flex: 1, padding: 16, backgroundColor: "#fff" },
 
   searchBar: {
