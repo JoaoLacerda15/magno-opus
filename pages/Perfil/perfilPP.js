@@ -42,7 +42,7 @@ export default function PerfilPP() {
     user?.tags?.length > 0 ? user.tags[0] : "Profissão não informada";
 
   return (
-    <View>
+    <View style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
         <ScrollView style={styles.scrollView}>
           
@@ -72,9 +72,9 @@ export default function PerfilPP() {
             </View>
 
             {/* Nome */}
-  <Text className="text-xl font-bold text-white">
-    {user?.email || "usuário desconhecido"}
-  </Text>
+            <Text style={{ fontSize: 20, fontWeight: "bold", color: "#222" }}>
+              {user?.nome || "usuário desconhecido"}
+            </Text>
 
             {/* Profissão via TAG */}
             <Text style={styles.jobTitle}>
@@ -83,16 +83,19 @@ export default function PerfilPP() {
 
             {/* Localização */}
             <Text style={styles.location}>
-              {user?.cidade && user?.estado
-                ? `${user.cidade}, ${user.estado}`
+              {user?.cep
+                ? `${user.cep}${user?.estado ? ", " + user.estado : ""}`
                 : "Localização não informada"}
             </Text>
 
             {/* Sobre mim */}
             <View style={styles.aboutSection}>
               <Text style={styles.aboutTitle}>Sobre mim:</Text>
+
               <Text style={styles.aboutText}>
-                {user?.bio?.trim() ? user.bio : "Nenhuma descrição informada"}
+                {user?.bio && typeof user.bio === "string" && user.bio.trim() !== ""
+                  ? user.bio
+                  : "Nenhuma descrição informada"}
               </Text>
             </View>
 
@@ -172,7 +175,8 @@ export default function PerfilPP() {
           </View>
         </ScrollView>
       </SafeAreaView>
-      <BarraNavegacao/>
+
+      <BarraNavegacao />
     </View>
   );
 }
@@ -219,13 +223,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 35,
-  },
-
-  userName: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#222",
-    marginBottom: 4,
   },
 
   jobTitle: {
