@@ -1,0 +1,84 @@
+login:
+- id_login
+- email
+- numero
+- senha
+- id_usuario FK
+
+usuário:
+- id_usuario
+- categorias
+- nome
+- nickname
+- sexo
+- favoritos { favorito1, favorito2 }
+- endereço FK
+
+endereço:
+- id
+- cpf
+- cep
+- estado
+- endereço
+- complemento
+
+inventario:
+- id_item
+- id_usuario
+- nome
+- valorEstimado
+- estado (como está a qualidade do item)
+- categoria
+
+"Esporte
+Cinema
+Música
+Colecionável
+Livros
+Moda
+Tecnologia
+Móveis
+Cosméticos
+Automóveis
+Games"
+
+
+- imgs { img 1, img 2 }
+- descricao
+
+chats:
+- id_usuario
+- id_chat {1, 2, 3 ,4} FK
+
+chat:
+- id_chat ()
+- id_usuario
+- id_UResposta
+- mensagens {[mensagem1, id_usuario (id do usuário responsável pela mensagem)], mensagem2...}
+- id_item FK
+- id_item2 (item da outra pessoa da troca) FK
+- localizacao
+
+comentario:
+- id_usuario
+- id_UserComent
+- avaliacao
+- descricao
+
+conjunta: 
+- id_chat ()
+- id_usuario
+- id_SegUser
+- id_TerUser
+- mensagens {[mensagem1, id_usuario (id do usuário responsável pela mensagem)], mensagem2...}
+- PrmTroca
+- SegTroca
+- TerTroca
+
+histórico: 
+- id_troca
+- id_usuario
+- id_item
+- id_item2
+- data_inicio (definido já na tabela assim que iniciar uma troca)
+- visible
