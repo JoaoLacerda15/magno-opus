@@ -10,8 +10,39 @@ export default function Register({ navigation }) {
   const [password, setPassword] = useState("");
   const [userType, setUserType] = useState("comum"); // padrão comum
   const [cpf, setCpf] = useState("");
+
   const [cep, setCep] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [estado, setEstado] = useState("");
+  
   const [tags, setTags] = useState([]);
+
+  const buscarCep = async (cepDigitado) => {
+    // Remove caracteres não numéricos
+    const cepLimpo = cepDigitado.replace(/\D/g, "");
+
+    setCep(cepDigitado); // Atualiza o visual enquanto digita
+
+    // Só busca se tiver 8 dígitos
+    if (cepLimpo.length === 8) {
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+        const data = await response.json();
+
+        if (data.erro) {
+          Alert.alert("Atenção", "CEP não encontrado.");
+          return;
+        }
+
+        // Preenche automaticamente
+        setCidade(data.localidade);
+        setEstado(data.uf);
+      } catch (error) {
+        console.error(error);
+        Alert.alert("Erro", "Falha ao buscar CEP.");
+      }
+    }
+  };
 
   const tagsDisponiveis = [
     "limpeza",
@@ -40,6 +71,8 @@ export default function Register({ navigation }) {
         userType,
         cpf,
         cep,
+        cidade,
+        estado,
         tags: userType === "trabalhador" ? tags : [], // tags só pro trabalhador
       });
 
@@ -84,12 +117,32 @@ export default function Register({ navigation }) {
         onChangeText={setCpf}
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="CEP"
-        value={cep}
-        onChangeText={setCep}
-      />
+      {/* --- CAMPO DE CEP COM BUSCA AUTOMÁTICA --- */}
+        <TextInput
+          style={styles.input}
+          placeholder="CEP (apenas números)"
+          value={cep}
+          onChangeText={(text) => buscarCep(text)} // Chama a função a cada digito
+          keyboardType="numeric"
+          maxLength={9}
+        />
+
+        <View style={styles.row}>
+          <TextInput
+            style={[styles.input, styles.cityInput]}
+            placeholder="Cidade"
+            value={cidade}
+            onChangeText={setCidade} // Deixa editável caso a API falhe
+          />
+
+          <TextInput
+            style={[styles.input, styles.stateInput]}
+            placeholder="UF"
+            value={estado}
+            onChangeText={setEstado}
+            maxLength={2}
+          />
+        </View>
 
       {/* Tipo de usuário */}
       <View style={styles.userTypeContainer}>
@@ -161,4 +214,15 @@ const styles = StyleSheet.create({
   tagSelected: { backgroundColor: "#007AFF" },
   tagText: { color: "#007AFF" },
   tagTextSelected: { color: "#fff" },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  cityInput: {
+    flex: 3, // Ocupa 75% da linha
+    marginRight: 10,
+  },
+  stateInput: {
+    flex: 1, // Ocupa 25% da linha
+  },
 });

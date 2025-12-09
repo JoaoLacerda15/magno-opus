@@ -13,7 +13,7 @@ export default class AuthService {
   // ---------------------------------------
   // 🟦 REGISTRO DE USUÁRIO (AGORA COM ID REAL)
   // ---------------------------------------
-  async register({ nome, email, password, userType, cpf, cep, tags }) {
+  async register({ nome, email, password, userType, cpf, cep, cidade, estado, tags }) {
 
     if (!email || !password || !nome) {
       throw new Error("Nome, Email e Senha são obrigatórios.");
@@ -45,6 +45,8 @@ export default class AuthService {
       userType,
       cpf: cpf || null,
       cep: cep || null,
+      cidade: cidade || null,
+      estado: estado || null,
       tags: tags || [],
       createdAt: new Date().toISOString(),
     });
