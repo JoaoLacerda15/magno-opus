@@ -1,7 +1,7 @@
-import { ref, set, get } from "firebase/database";
+import { ref, set, get, push } from "firebase/database";
 import { database } from "../firebase/firebaseService";
 
-// Função opcional para remover acentos (normaliza busca)
+// Normalizar strings (acentos e maiúsculas)
 const normalize = (str) =>
   str
     ?.normalize("NFD")
@@ -11,7 +11,7 @@ const normalize = (str) =>
 export default class AuthService {
 
   // ---------------------------------------
-  // 🟦 REGISTRO DE USUÁRIO
+  // 🟦 REGISTRO DE USUÁRIO (AGORA COM ID REAL)
   // ---------------------------------------
   async register({ nome, email, password, userType, cpf, cep, tags }) {
 
@@ -21,13 +21,24 @@ export default class AuthService {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    const userKey = normalizedEmail.replace(/\./g, "_");
-    const userRef = ref(database, `users/${userKey}`);
+    // Verifica se email já existe
+    const usersRef = ref(database, "users");
+    const snapshot = await get(usersRef);
 
-    const snapshot = await get(userRef);
-    if (snapshot.exists()) throw new Error("Email já cadastrado");
+    if (snapshot.exists()) {
+      const users = snapshot.val();
+      const emailExists = Object.values(users).some(
+        (u) => u.email === normalizedEmail
+      );
+      if (emailExists) throw new Error("Email já cadastrado");
+    }
 
-    await set(userRef, {
+    // Cria ID automático
+    const newUserRef = push(usersRef);
+    const userId = newUserRef.key; // <--- ID REAL
+
+    await set(newUserRef, {
+      id: userId,
       nome,
       email: normalizedEmail,
       password: password,
@@ -38,40 +49,41 @@ export default class AuthService {
       createdAt: new Date().toISOString(),
     });
 
-    return true;
+    return { id: userId };
   }
 
   // ---------------------------------------
-  // 🟦 LOGIN
+  // 🟦 LOGIN (PROCURA O EMAIL DENTRO DOS USERS)
   // ---------------------------------------
   async login(email, password) {
-    try {
 
-      if (!email || !password) {
-        throw new Error("Email e Senha são obrigatórios.");
-      }
-
-      const normalizedEmail = email.toLowerCase().trim();
-
-      const userKey = normalizedEmail.replace(/\./g, "_");
-      const userRef = ref(database, `users/${userKey}`);
-
-      const snapshot = await get(userRef);
-      if (!snapshot.exists()) throw new Error("Email não cadastrado");
-
-      const userData = snapshot.val();
-
-      if (userData.password !== password) {
-        throw new Error("Senha incorreta");
-      }
-
-      // Retorna o ID junto
-      const { password: _, ...userInfo } = userData;
-      return { id: userKey, ...userInfo }
-    } catch(er) {
-      console.error("Erro no login:", er.message);
-      throw er;
+    if (!email || !password) {
+      throw new Error("Email e Senha são obrigatórios.");
     }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const usersRef = ref(database, "users");
+    const snapshot = await get(usersRef);
+
+    if (!snapshot.exists()) throw new Error("Email não cadastrado");
+
+    const users = snapshot.val();
+
+    // encontrar user cujo email bate
+    const entries = Object.entries(users);
+    const found = entries.find(([id, user]) => user.email === normalizedEmail);
+
+    if (!found) throw new Error("Email não cadastrado");
+
+    const [userId, userData] = found;
+
+    if (userData.password !== password) {
+      throw new Error("Senha incorreta");
+    }
+
+    const { password: _, ...info } = userData;
+    return { id: userId, ...info };
   }
 
   // ---------------------------------------
@@ -83,15 +95,13 @@ export default class AuthService {
     const userRef = ref(database, `users/${userId}`);
     const snapshot = await get(userRef);
 
-    if (!snapshot.exists()) {
-      throw new Error("Usuário não encontrado");
-    }
+    if (!snapshot.exists()) throw new Error("Usuário não encontrado");
 
     return snapshot.val();
   }
 
   // ---------------------------------------
-  // 🔍 BUSCA AVANÇADA (nome + email + tags)
+  // 🔍 BUSCA AVANÇADA
   // ---------------------------------------
   async searchUsers(query, selectedTag = null) {
     const dbRef = ref(database, "users");
