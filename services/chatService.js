@@ -9,6 +9,8 @@ import { realtimeDB } from "../firebase/firebaseService";
  */
 export async function criarChat(id_cliente, id_trabalhador, dadosContrato = {}) {
   try {
+    if (!realtimeDB) throw new Error("Banco de dados não inicializado");
+
     const chatsRef = ref(realtimeDB, "chats");
     const novoChatRef = push(chatsRef);
 
@@ -49,7 +51,7 @@ export async function listarChatsUsuario(userId) {
 
     const [snapCliente, snapTrabalhador] = await Promise.all([get(queryCliente), get(queryTrabalhador)]);
 
-    const chats = [];
+    const chatsIniciais = [];
 
     const processSnapshot = (snap) => {
       if (snap.exists()) {
@@ -63,7 +65,7 @@ export async function listarChatsUsuario(userId) {
     processSnapshot(snapTrabalhador);
 
     const chatsCompletos = await Promise.all(
-      chatsRaw.map(async (chat) => {
+      chatsIniciais.map(async (chat) => {
         const idOutroUsuario = chat.id_cliente === userId ? chat.id_trabalhador : chat.id_cliente;
         
         const userRef = ref(realtimeDB, `users/${idOutroUsuario}`);
@@ -77,7 +79,7 @@ export async function listarChatsUsuario(userId) {
       })
     );
 
-    return chats;
+    return chatsCompletos;
   } catch (error) {
     console.error("Erro ao listar chats do usuário:", error);
     return [];

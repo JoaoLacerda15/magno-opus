@@ -1,5 +1,5 @@
 import { ref, set, get, push } from "firebase/database";
-import { database } from "../firebase/firebaseService";
+import { realtimeDB } from "../firebase/firebaseService";
 
 // Normalizar strings (acentos e maiúsculas)
 const normalize = (str) =>
@@ -22,7 +22,7 @@ export default class AuthService {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Verifica se email já existe
-    const usersRef = ref(database, "users");
+    const usersRef = ref(realtimeDB, "users");
     const snapshot = await get(usersRef);
 
     if (snapshot.exists()) {
@@ -65,7 +65,7 @@ export default class AuthService {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    const usersRef = ref(database, "users");
+    const usersRef = ref(realtimeDB, "users");
     const snapshot = await get(usersRef);
 
     if (!snapshot.exists()) throw new Error("Email não cadastrado");
@@ -94,7 +94,7 @@ export default class AuthService {
   async getUserById(userId) {
     if (!userId) throw new Error("ID inválido");
 
-    const userRef = ref(database, `users/${userId}`);
+    const userRef = ref(realtimeDB, `users/${userId}`);
     const snapshot = await get(userRef);
 
     if (!snapshot.exists()) throw new Error("Usuário não encontrado");
@@ -106,7 +106,7 @@ export default class AuthService {
   // 🔍 BUSCA AVANÇADA
   // ---------------------------------------
   async searchUsers(query, selectedTag = null) {
-    const dbRef = ref(database, "users");
+    const dbRef = ref(realtimeDB, "users");
     const snapshot = await get(dbRef);
 
     if (!snapshot.exists()) return [];

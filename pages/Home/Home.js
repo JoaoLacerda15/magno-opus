@@ -55,7 +55,14 @@ export default function Home() {
     setLoadingBusca(true)
     try {
       const data = await auth.searchUsers(query, tag);
-      setResults(data);
+      
+      const resultadosFiltrados = data.filter(usuario => {
+        const isTrabalhador = usuario.userType?.toLowerCase() === 'trabalhador';        
+        const isNotMe = usuario.id !== loggedUserId;
+        return isTrabalhador && isNotMe;
+      });
+
+      setResults(resultadosFiltrados);
     } catch (error) {
       console.error(error);
     } finally {
