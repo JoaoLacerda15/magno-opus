@@ -16,16 +16,24 @@ export default function conversasScreen() {
   const { chats, loading } = useChatService();
   const navigation = useNavigation();
 
+  
   const renderItem = ({ item }) => {
+
+    const listaMensagens = item.mensagens ? Object.values(item.mensagens) : [];
+
     const ultimaMensagem =
-      item.mensagens && Object.values(item.mensagens).length > 0
-        ? Object.values(item.mensagens).at(-1).mensagem
-        : "Nenhuma mensagem";
+      listaMensagens.length > 0
+        ? listaMensagens.at(-1).mensagem // Pega a ultima msg
+        : `Contrato: ${item.contrato?.servico || "Novo serviço"}`;
 
     return (
       <TouchableOpacity
         style={styles.chatItem}
-        onPress={() => navigation.navigate("chat", { chatId: item.id_chat })}
+        // Passamos o ID e também os dados do outro usuário para o header do chat ficar bonito
+        onPress={() => navigation.navigate("chatScreen", { 
+            chatId: item.id_chat, 
+            outroUsuario: item.outroUsuario 
+        })}
       >
         <Image
           source={
@@ -37,9 +45,11 @@ export default function conversasScreen() {
         />
         <View style={styles.chatInfo}>
           <Text style={styles.chatName}>
-            {item.outroUsuario?.nome || "Trabalhador"}
+            {item.outroUsuario?.nome || "Usuário"}
           </Text>
-          <Text style={styles.lastMessage}>{ultimaMensagem}</Text>
+          <Text style={styles.lastMessage} numberOfLines={1}>
+            {ultimaMensagem}
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -56,7 +66,10 @@ export default function conversasScreen() {
       {/* Botão inspirado na imagem (agora com ícone de pessoa) */}
       <TouchableOpacity
         style={styles.customButton}
-        onPress={() => navigation.navigate("chatScreen")}
+        onPress={() => navigation.navigate("chatScreen", {
+          chatId: item.id_chat,
+          outroUsuario: item.outroUsuario
+        })}
       >
         <Ionicons name="person-outline" size={20} color="#000000ff" />
         <Text style={styles.customButtonText}>usuario</Text>

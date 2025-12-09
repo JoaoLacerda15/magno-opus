@@ -21,7 +21,7 @@ export default function ChatScreen() {
   const navigation = useNavigation();
   const flatListRef = useRef(null);
 
-  const { chatId } = route.params || {};
+  const { chatId, outroUsuario } = route.params || {};
   const { user } = useAuth(); // Seu hook de auth
 
   const myId = user?.id || user?.uid;
@@ -78,16 +78,22 @@ export default function ChatScreen() {
     }
   }
 
-  const renderItem = ({ item }) => {
+  const renderItem = ({ item }) => { // Parte das mensagens slk
     const isMyMessage = item.id_usuario === user?.uid || item.id_usuario === user?.id;
     return (
-      <View
-        style={[
-          styles.message,
-          isMyMessage ? styles.myMessage : styles.otherMessage,
-        ]}
-      >
-        <Text style={styles.messageText}>{item.mensagem}</Text>
+      <View style={[
+          styles.messageRow, 
+          isMyMessage ? styles.rowEnd : styles.rowStart
+      ]}>
+        <View
+          style={[
+            styles.messageBubble,
+            isMyMessage ? styles.myBubble : styles.otherBubble,
+          ]}
+        >
+          <Text style={styles.messageText}>{item.mensagem}</Text>
+        </View>
+
         <Text style={styles.timeText}>
             {new Date(item.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
@@ -113,7 +119,7 @@ export default function ChatScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chat</Text>
+        <Text style={styles.headerTitle}>{outroUsuario?.nome || "Chat"}</Text>
       </View>
 
       <FlatList
@@ -157,22 +163,44 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       gap: 10
   },
-  message: {
-    maxWidth: "70%",
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 8,
+  messageRow: {
+    marginBottom: 12,
+    maxWidth: "75%", // Limita a largura total para não encostar na outra borda
   },
-  myMessage: {
+  // Alinhamento para MINHAS mensagens (Direita)
+  rowEnd: {
     alignSelf: "flex-end",
-    backgroundColor: "#DCF8C6",
+    alignItems: "flex-end", // Alinha o texto da hora à direita também
   },
-  otherMessage: {
+  // Alinhamento para OUTRAS mensagens (Esquerda)
+  rowStart: {
     alignSelf: "flex-start",
-    backgroundColor: "#E5E5EA",
+    alignItems: "flex-start", // Alinha o texto da hora à esquerda
   },
-  messageText: { fontSize: 15 },
-  myMessageText: { color: "#fff" },
+
+  // Estilo do Balão
+  messageBubble: {
+    padding: 12,
+    borderRadius: 16,
+  },
+  myBubble: {
+    backgroundColor: "#DCF8C6",
+    borderBottomRightRadius: 2, // Efeito visual de "bico" do chat
+  },
+  otherBubble: {
+    backgroundColor: "#E5E5EA",
+    borderBottomLeftRadius: 2, // Efeito visual de "bico" do chat
+  },
+
+  messageText: { fontSize: 15, color: '#000' },
+  
+  // Estilo da Hora
+  timeText: {
+      fontSize: 11,
+      color: "#999",
+      marginTop: 4, // Espaço entre o balão e a hora
+      marginHorizontal: 2
+  },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -187,7 +215,7 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     borderRadius: 25,
     paddingHorizontal: 15,
-    paddingVertical: 20,
+    paddingVertical: 10,
     marginRight: 10,
     maxHeight: 100,
   },

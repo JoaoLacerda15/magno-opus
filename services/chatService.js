@@ -56,7 +56,7 @@ export async function listarChatsUsuario(userId) {
     const processSnapshot = (snap) => {
       if (snap.exists()) {
         snap.forEach((child) => {
-          chats.push({ id_chat: child.key, ...child.val() });
+          chatsIniciais.push({ id_chat: child.key, ...child.val() });
         });
       }
     };
@@ -64,13 +64,25 @@ export async function listarChatsUsuario(userId) {
     processSnapshot(snapCliente);
     processSnapshot(snapTrabalhador);
 
+    const chatsUnicos = chatsIniciais.filter((chat, index, self) =>
+      index === self.findIndex((t) => t.id_chat === chat.id_chat)
+    );
+    
     const chatsCompletos = await Promise.all(
       chatsIniciais.map(async (chat) => {
         const idOutroUsuario = chat.id_cliente === userId ? chat.id_trabalhador : chat.id_cliente;
         
         const userRef = ref(realtimeDB, `users/${idOutroUsuario}`);
         const userSnap = await get(userRef);
-        const outroUsuarioData = userSnap.exists() ? userSnap.val() : { nome: "Usuário Desconhecido" };
+        let outroUsuarioData = { nome: "Usuário", photoURL: null };
+
+        if (userSnap.exists()) {
+            const data = userSnap.val();
+            outroUsuarioData = {
+                nome: data.nome || data.name || "Usuário",
+                photoURL: data.photoURL || data.avatar || data.foto || null
+            };
+        }
 
         return {
           ...chat,

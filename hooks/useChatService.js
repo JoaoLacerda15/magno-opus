@@ -1,46 +1,40 @@
-import { useEffect, useState } from "react";
-import { ref, onValue } from "firebase/database";
-import { realtimeDB } from "../firebase/firebaseService";
-import { auth } from "../context/authContext"; // depende do seu contexto de autenticação
+import { useState, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { listarChatsUsuario } from "../services/chatService";
+import { useAuth } from "../context/authContext"; // Ajuste para onde está seu AuthContext
 
 export function useChatService() {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth(); // Pegando o ID do usuário logado
 
-  useEffect(() => {
-    const userId = auth?.currentUser?.uid;
-    if (!userId) {
+  const carregarChats = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const meuId = user.id || user.uid; // Garante que pega o ID certo
+      const dados = await listarChatsUsuario(meuId);
+      // Ordena: mensagens mais recentes primeiro
+      const ordenado = dados.sort((a, b) => {
+        const dateA = a.mensagens ? Object.values(a.mensagens).pop()?.data : a.criadoEm;
+        const dateB = b.mensagens ? Object.values(b.mensagens).pop()?.data : b.criadoEm;
+        return new Date(dateB) - new Date(dateA);
+      });
+      setChats(ordenado);
+    } catch (error) {
+      console.error(error);
+    } finally {
       setLoading(false);
-      return;
     }
+  };
 
-    const chatsRef = ref(realtimeDB, "chats");
+  // useFocusEffect recarrega a lista toda vez que você volta para essa tela
+  useFocusEffect(
+    useCallback(() => {
+      carregarChats();
+    }, [user])
+  );
 
-    // Escuta em tempo real os chats
-    const unsubscribe = onValue(chatsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) {
-        setChats([]);
-        setLoading(false);
-        return;
-      }
-
-      // Filtra os chats onde o usuário é cliente ou trabalhador
-      const todos = Object.entries(data).map(([id, value]) => ({
-        id_chat: id,
-        ...value,
-      }));
-
-      const relacionados = todos.filter(
-        (chat) => chat.id_cliente === userId || chat.id_trabalhador === userId
-      );
-
-      setChats(relacionados);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  return { chats, loading };
+  return { chats, loading, recarregar: carregarChats };
 }
