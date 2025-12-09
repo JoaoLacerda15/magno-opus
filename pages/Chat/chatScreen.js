@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -13,16 +16,16 @@ import { ref, onValue, push, set } from "firebase/database";
 import { realtimeDB } from "../../firebase/firebaseService";
 import { useAuth } from "../../context/authContext";
 
-export default function chatScreen() {
+export default function ChatScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const flatListRef = useRef(null);
 
   const { chatId } = route.params || {};
-  
-
-  // Se o contexto de autenticação não estiver configurado, define um user padrão
   const { user } = useAuth(); // Seu hook de auth
+
+  const myId = user?.id || user?.uid;
+
   const [mensagens, setMensagens] = useState([]);
   const [novaMensagem, setNovaMensagem] = useState("");
 
@@ -65,7 +68,7 @@ export default function chatScreen() {
         const novaMensagemRef = push(mensagensRef);
     
         await set(novaMensagemRef, {
-          id_usuario: user.uid, // ou user.id dependendo do seu context
+          id_usuario: myId,
           mensagem: msgTemp,
           data: new Date().toISOString(),
         });
@@ -91,6 +94,14 @@ export default function chatScreen() {
       </View>
     );
   };
+
+  if (!user) {
+      return (
+          <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
+              <ActivityIndicator size="large" color="#007bff" />
+          </View>
+      )
+  }
 
   return (
     <KeyboardAvoidingView 

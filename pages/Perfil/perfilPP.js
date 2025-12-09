@@ -23,7 +23,7 @@ export default function PerfilPP() {
 
   const { user: userLogado } = useAuth();
 
-  const targetUserId = route.params?.userId || userLogado?.uid;
+  const targetUserId = route.params?.userId || userLogado?.id || userLogado?.uid;
 
   const [perfilExibido, setPerfilExibido] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +38,7 @@ export default function PerfilPP() {
         return;
       }
 
-      if (userLogado && targetUserId === userLogado.uid) {
+      if (userLogado && targetUserId === userLogado.id) {
         console.log("✅ Exibindo dados do próprio usuário (via Contexto)");
         setPerfilExibido(userLogado);
         setLoading(false);
@@ -139,7 +139,7 @@ export default function PerfilPP() {
             <Text style={styles.location}>
               {perfilExibido?.cidade && perfilExibido?.estado
                 ? `${perfilExibido.cidade} - ${perfilExibido.estado}`
-                : perfilExibido?.cep || "Localização não informada"}
+                : `CEP: '${perfilExibido?.cep}'`|| "Localização não informada"}
             </Text>
 
             {/* Sobre mim */}
@@ -164,12 +164,11 @@ export default function PerfilPP() {
               </TouchableOpacity>
 
               {/* SÓ MOSTRA O BOTÃO CONVERSAR SE NÃO FOR EU MESMO */}
-              {userLogado?.uid !== perfilExibido.id && (
+              {userLogado?.id !== perfilExibido.id && (
                 <TouchableOpacity 
                     style={[styles.actionButton, { width: '100%' }]}
                     // Importante: Passando o ID do usuário alvo para o chat
-                    onPress={() => navigation.navigate('chat', { 
-                        chatId: null, // Chat novo
+                    onPress={() => navigation.navigate('chatScreen', {
                         targetUserId: perfilExibido.id // ID de com quem quero falar
                     })}
                 >

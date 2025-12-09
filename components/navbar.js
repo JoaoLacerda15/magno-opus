@@ -6,17 +6,20 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { useAuth } from "../context/authContext";
 
 // 💡 Agora recebe 'userId' como propriedade
 export default function BarraNavegacao({ userId = null }) { 
   const navigation = useNavigation();
+
+  const { user } = useAuth();
 
   // Função auxiliar para navegar para o Perfil com o ID
   const navegarParaPerfil = () => {
     // Verifica se o ID existe antes de navegar.
     // Se o ID for null/undefined, a navegação ainda ocorre,
     // mas a tela 'perfilPP' exibirá a mensagem de erro (como configurado anteriormente).
-    navigation.navigate("perfilPP", { userId: userId });
+    navigation.navigate("perfilPP", { userId: null });
   };
 
   return (

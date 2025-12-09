@@ -11,49 +11,25 @@ import {
   Dimensions,
   ActivityIndicator, // Adicionado para a tela de carregamento do ID
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // ESSENCIAL PARA PERSISTÊNCIA
-
 import BarraNavegacao from "../../components/navbar";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 
 import AuthService from "../../services/authService";
-const auth = new AuthService();
+import { useAuth } from "../../context/authContext";
 
+const auth = new AuthService();
 const { width } = Dimensions.get("window");
 
 export default function Home() {
   const navigation = useNavigation();
+
+  const { user, loading } = useAuth();
+
   const route = useRoute();
 
   // 1. ESTADO CENTRALIZADO E DE CARREGAMENTO
-  const [loggedUserId, setLoggedUserId] = useState(route.params?.userId || null);
-  const [loadingId, setLoadingId] = useState(true); // Controla se o ID já foi buscado
-
-  // -------------------------------
-  // ⏳ RECUPERAÇÃO DO ID PERSISTENTE
-  // -------------------------------
-  useEffect(() => {
-    const getPersistentId = async () => {
-      setLoadingId(true);
-      try {
-        if (!loggedUserId) {
-          const storedId = await AsyncStorage.getItem("userId");
-          if (storedId) {
-            console.log("✅ ID recuperado do AsyncStorage:", storedId);
-            setLoggedUserId(storedId);
-          } else {
-            console.warn("⚠️ Nenhum ID encontrado. Usuário pode não estar logado.");
-          }
-        }
-      } catch (e) {
-        console.error("❌ Erro ao ler AsyncStorage:", e);
-      } finally {
-        setLoadingId(false); // FIM do carregamento do ID
-      }
-    };
-    getPersistentId();
-  }, [loggedUserId]); 
+  const loggedUserId = user?.id || user?.uid || null;
 
   // -------------------------------
   // 🔍 SISTEMA DE BUSCA (mantido)
@@ -61,6 +37,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
   const [selectedTag, setSelectedTag] = useState(null);
+  const [loadingBusca, setLoadingBusca] = useState(true);
 
   const tagsDisponiveis = [
     "limpeza",
@@ -75,9 +52,20 @@ export default function Home() {
   ];
 
   const executarBusca = async (query, tag = selectedTag) => {
-    const data = await auth.searchUsers(query, tag);
-    setResults(data);
+    setLoadingBusca(true)
+    try {
+      const data = await auth.searchUsers(query, tag);
+      setResults(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingBusca(false);
+    }
   };
+
+  useEffect(() => {
+    executarBusca(""); // Chama sem filtros para trazer tudo
+  }, []);
 
   const handleSearch = (text) => {
     setSearch(text);
@@ -136,11 +124,10 @@ export default function Home() {
   // -------------------------------
   // ⚠️ TELA DE CARREGAMENTO ENQUANTO BUSCA O ID
   // -------------------------------
-  if (loadingId) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1565C0" />
-        <Text style={styles.loadingText}>Carregando dados...</Text>
       </View>
     );
   }
@@ -149,13 +136,11 @@ export default function Home() {
   // RENDERIZAÇÃO PRINCIPAL
   // -------------------------------
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, paddingBottom: '20%', paddingTop: '6%' }}>
       <ScrollView style={styles.container}>
-
         {/* 🔍 BARRA DE PESQUISA */}
         <View style={styles.searchBar}>
           <Icon name="search" size={24} color="gray" />
-
           <TextInput
             placeholder="Pesquisar nome ou serviço..."
             style={{ flex: 1, marginLeft: 8 }}
@@ -164,7 +149,6 @@ export default function Home() {
             onSubmitEditing={buscarApertarEnter}
             returnKeyType="search"
           />
-
           <TouchableOpacity onPress={toggleMenu}>
             <Icon name="settings" size={26} color="black" />
           </TouchableOpacity>
@@ -197,35 +181,31 @@ export default function Home() {
         {results.length > 0 && (
           <View style={{ marginBottom: 20 }}>
             <Text style={styles.sectionTitle}>Resultados da Busca:</Text>
-
-            {results.map((user, index) => (
+            {results.map((userRes, index) => (
               <TouchableOpacity
                 key={index}
                 style={styles.resultItem}
                 onPress={() =>
-                  navigation.navigate("perfilDoTrabalhador", { user })
+                  navigation.navigate("perfilPP", { userId: userRes.id }) // Ajuste para rota correta
                 }
               >
                 <Text style={{ fontSize: 16, fontWeight: "bold" }}>
-                  {user.nome}
+                  {userRes.nome}
                 </Text>
-                <Text style={{ color: "gray" }}>{user.email}</Text>
-
-                {user.tags?.length > 0 && (
+                <Text style={{ color: "gray" }}>{userRes.email}</Text>
+                {userRes.tags?.length > 0 && (
                   <Text style={{ color: "#666", marginTop: 4 }}>
-                    Tags: {user.tags.join(", ")}
+                    Tags: {userRes.tags.join(", ")}
                   </Text>
                 )}
               </TouchableOpacity>
             ))}
           </View>
         )}
-
-
       </ScrollView>
 
-      {/* 🎯 CORREÇÃO CRUCIAL: Passa o loggedUserId para a Navbar */}
-      <BarraNavegacao userId={loggedUserId} />
+      {/* NAVBAR: Não precisa passar props, ela pega do AuthContext */}
+      <BarraNavegacao />
 
       {/* MENU LATERAL */}
       {menuVisible && (
@@ -254,7 +234,9 @@ export default function Home() {
                   style={styles.menuItem}
                   onPress={() => {
                     toggleMenu();
-                    navigation.navigate(item.route, item.params || {});
+                    if (item.route) {
+                        navigation.navigate(item.route, item.params || {});
+                    }
                   }}
                 >
                   <Icon name={item.icon} size={24} color="#444" />
@@ -276,6 +258,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
+    paddingBottom: '10%'
   },
   loadingText: {
     marginTop: 10,
