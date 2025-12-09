@@ -3,7 +3,7 @@ import {
   View, 
   Text, 
   TextInput, 
-  Button, 
+  TouchableOpacity, 
   Alert, 
   StyleSheet, 
   Image, 
@@ -11,16 +11,19 @@ import {
   Platform, 
   ScrollView, 
   TouchableWithoutFeedback, 
-  Keyboard 
+  Keyboard,
+  ActivityIndicator
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import AuthService from "../../services/authService";
+import { useAuth } from "../../context/authContext";
 
-const auth = new AuthService();
+const authService = new AuthService();
 
 export default function LoginScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const { setUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -40,17 +43,11 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      const user = await auth.login(email, password);
+      const userData = await authService.login(email, password);
 
-      Alert.alert("Sucesso", `Bem-vindo, ${user.nome || user.email}!`);
+      Alert.alert("Sucesso", `Bem-vindo, ${userData.nome || userData.email}!`);
 
-      // Enviar o ID para a Home
-      navigation.reset({
-        index: 0,
-        routes: [
-          { name: "Home", params: { userId: user.id } }
-        ]
-      });
+      await setUser(userData);
 
     } catch (e) {
       Alert.alert("Erro", e.message || "Ocorreu um erro desconhecido.");
@@ -97,16 +94,30 @@ export default function LoginScreen() {
               secureTextEntry
             />
 
-            <Button title="Login" onPress={handleLogin} />
+            {/* --- BOTÃO DE LOGIN MODIFICADO --- */}
+            <TouchableOpacity 
+              style={[styles.button, isLoading && styles.buttonDisabled]} 
+              onPress={handleLogin}
+              disabled={isLoading} // Impede clicar 2x
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Login</Text>
+              )}
+            </TouchableOpacity>
+            {/* ---------------------------------- */}
 
             <Text style={{ marginTop: 16, textAlign: "center" }}>
               Não tem uma conta?
             </Text>
 
-            <Button
-              title="Criar conta"
+            <TouchableOpacity
               onPress={() => navigation.navigate("register")}
-            />
+              style={{ padding: 10 }}
+            >
+              <Text style={{ color: "#007AFF", textAlign: "center", fontWeight: "bold" }}>Criar conta</Text>
+            </TouchableOpacity>
           </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -141,5 +152,20 @@ const styles = StyleSheet.create({
     // Adicionei altura/largura fixa ou relativa para evitar erros se a imagem for grande
     height: 100, 
     width: 100 
+  },
+  button: {
+    backgroundColor: "#007AFF",
+    padding: 15,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: "center",
+  },
+  buttonDisabled: {
+    backgroundColor: "#A0CFFF", // Cor mais clara quando desabilitado
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16
   }
 });

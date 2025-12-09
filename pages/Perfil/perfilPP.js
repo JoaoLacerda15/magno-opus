@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,54 +13,56 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AuthService from "../../services/authService";
 import BarraNavegacao from "../../components/navbar";
+import { useAuth } from "../../context/authContext";
 
-const auth = new AuthService();
+const authService = new AuthService();
 
 export default function PerfilPP() {
   const route = useRoute();
   const navigation = useNavigation();
-  const userId = route.params?.userId;
 
-  const [user, setUser] = React.useState(null);
-  const [loading, setLoading] = React.useState(true); // Adicionando estado de carregamento
+  const { user: userLogado } = useAuth();
 
-  React.useEffect(() => {
-    async function carregarUsuario() {
-      setLoading(true); // Inicia o carregamento
+  const targetUserId = route.params?.userId || userLogado?.uid;
 
-      if (!userId) {
-        console.warn("❌ ERRO DE ROTA: userId não foi passado para a tela PerfilPP.");
+  const [perfilExibido, setPerfilExibido] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function carregarDadosDoPerfil() {
+      setLoading(true);
+
+      if (!targetUserId) {
+        console.warn("Nenhum ID identificado para exibir o perfil.");
         setLoading(false);
         return;
       }
-      
-      console.log(`✅ Tentando carregar usuário com ID: ${userId}`);
 
+      if (userLogado && targetUserId === userLogado.uid) {
+        console.log("✅ Exibindo dados do próprio usuário (via Contexto)");
+        setPerfilExibido(userLogado);
+        setLoading(false);
+        return;
+      }
+
+      console.log(`🔍 Buscando dados do usuário ID: ${targetUserId}`);
       try {
-        const dados = await auth.getUserById(userId);
-        
-        if (dados) {
-          console.log("✅ Dados do usuário carregados com sucesso.");
-        } else {
-          console.warn("⚠️ Usuário não encontrado no banco de dados.");
-        }
-        
-        setUser(dados);
+        const dados = await authService.getUserById(targetUserId);
+        setPerfilExibido(dados);
       } catch (e) {
-        // Log de erro fundamental para debug de falhas no Firebase/Rede
-        console.error("❌ ERRO ao carregar usuário via getUserById:", e.message);
-        setUser(null);
+        console.error("❌ Erro ao buscar perfil:", e.message);
+        setPerfilExibido(null);
       } finally {
-        setLoading(false); // Finaliza o carregamento
+        setLoading(false);
       }
     }
 
-    carregarUsuario();
-  }, [userId]);
+    carregarDadosDoPerfil();
+  }, [targetUserId, userLogado]);
 
   // PROFISSÃO = primeira tag marcada
   const profissao =
-    user?.tags?.length > 0 ? user.tags[0] : "Profissão não informada";
+    perfilExibido?.tags?.length > 0 ? perfilExibido.tags[0] : "Profissão não informada";
 
   // ----------------------------------------------------
   // 🔍 Tela de Carregamento ou Usuário Não Encontrado
@@ -74,12 +76,12 @@ export default function PerfilPP() {
     );
   }
 
-  if (!user) {
+  if (!perfilExibido) {
     return (
       <View style={styles.centerContainer}>
         <Ionicons name="alert-circle-outline" size={40} color="#E53935" />
         <Text style={{ fontSize: 16, color: "#E53935", marginTop: 10 }}>
-          Usuário não encontrado ou ID inválido.
+          Perfil não encontrado.
         </Text>
         <TouchableOpacity style={styles.goBackButton} onPress={() => navigation.goBack()}>
           <Text style={{ color: '#fff', fontWeight: 'bold' }}>Voltar</Text>
@@ -108,23 +110,24 @@ export default function PerfilPP() {
 
           {/* Profile Section */}
           <View style={styles.profileSection}>
-
             {/* Avatar */}
             <View style={styles.avatarContainer}>
-              {user?.avatar ? (
+              {perfilExibido?.avatar ? (
                 <Image 
-                  source={{ uri: user.avatar }} 
+                  source={{ uri: perfilExibido.avatar }} 
                   style={styles.avatarImage}
                 />
               ) : (
                 // Usando a primeira letra do nome como fallback (opcional)
-                <Text style={styles.avatarText}>{user.nome ? user.nome[0].toUpperCase() : '?'}</Text>
+                <Text style={styles.avatarText}>
+                  {perfilExibido.nome ? perfilExibido.nome[0].toUpperCase() : '?'}
+                </Text>
               )}
             </View>
 
             {/* Nome */}
             <Text style={{ fontSize: 20, fontWeight: "bold", color: "#222" }}>
-              {user?.nome || "Usuário Desconhecido"}
+              {perfilExibido?.nome || "Usuário"}
             </Text>
 
             {/* Profissão via TAG */}
@@ -134,9 +137,9 @@ export default function PerfilPP() {
 
             {/* Localização */}
             <Text style={styles.location}>
-              {user?.cep
-                ? `${user.cep}${user?.estado ? ", " + user.estado : ""}`
-                : "Localização não informada"}
+              {perfilExibido?.cidade && perfilExibido?.estado
+                ? `${perfilExibido.cidade} - ${perfilExibido.estado}`
+                : perfilExibido?.cep || "Localização não informada"}
             </Text>
 
             {/* Sobre mim */}
@@ -144,9 +147,7 @@ export default function PerfilPP() {
               <Text style={styles.aboutTitle}>Sobre mim:</Text>
 
               <Text style={styles.aboutText}>
-                {user?.bio && typeof user.bio === "string" && user.bio.trim() !== ""
-                  ? user.bio
-                  : "Nenhuma descrição informada"}
+                {perfilExibido?.bio || "Nenhuma descrição informada"}
               </Text>
             </View>
 
@@ -161,9 +162,21 @@ export default function PerfilPP() {
               <TouchableOpacity style={styles.actionButton}>
                 <Text style={styles.buttonText}>Agenda</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.buttonText}>Conversar</Text>
-              </TouchableOpacity>
+
+              {/* SÓ MOSTRA O BOTÃO CONVERSAR SE NÃO FOR EU MESMO */}
+              {userLogado?.uid !== perfilExibido.id && (
+                <TouchableOpacity 
+                    style={[styles.actionButton, { width: '100%' }]}
+                    // Importante: Passando o ID do usuário alvo para o chat
+                    onPress={() => navigation.navigate('chat', { 
+                        chatId: null, // Chat novo
+                        targetUserId: perfilExibido.id // ID de com quem quero falar
+                    })}
+                >
+                    <Text style={styles.buttonText}>Conversar</Text>
+                </TouchableOpacity>
+              )}
+
             </View>
           </View>
 

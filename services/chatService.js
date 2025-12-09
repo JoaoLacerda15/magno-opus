@@ -62,6 +62,21 @@ export async function listarChatsUsuario(userId) {
     processSnapshot(snapCliente);
     processSnapshot(snapTrabalhador);
 
+    const chatsCompletos = await Promise.all(
+      chatsRaw.map(async (chat) => {
+        const idOutroUsuario = chat.id_cliente === userId ? chat.id_trabalhador : chat.id_cliente;
+        
+        const userRef = ref(realtimeDB, `users/${idOutroUsuario}`);
+        const userSnap = await get(userRef);
+        const outroUsuarioData = userSnap.exists() ? userSnap.val() : { nome: "Usuário Desconhecido" };
+
+        return {
+          ...chat,
+          outroUsuario: outroUsuarioData // Agora a gente tem nome e foto! :)
+        };
+      })
+    );
+
     return chats;
   } catch (error) {
     console.error("Erro ao listar chats do usuário:", error);

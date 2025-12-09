@@ -9,6 +9,8 @@ import { Provider as PaperProvider } from 'react-native-paper'; // 👈 IMPORTAN
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from 'expo-system-ui';
 
+import { AuthProvider } from './context/authContext';
+
 export default function App() {
   useEffect(() => {
     LogBox.ignoreLogs([
@@ -34,17 +36,19 @@ export default function App() {
   }, []);
 
   return (
-    <PaperProvider> {/* 👈 OBRIGATÓRIO PARA O MODAL FUNCIONAR */}
-      <SafeAreaProvider>
-        <NavigationContainer>
-          <StatusBar
-            backgroundColor="transparent"
-            translucent={true}
-            barStyle="dark-content"
-          />
-          <Routes />
-        </NavigationContainer>
-      </SafeAreaProvider>
-    </PaperProvider>
+    <AuthProvider> {/* Literalmente o essencial para n ficar que nem um jamanta sem context */}
+      <PaperProvider> {/* 👈 OBRIGATÓRIO PARA O MODAL FUNCIONAR */}
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <StatusBar
+              backgroundColor="transparent"
+              translucent={true}
+              barStyle="dark-content"
+            />
+            <Routes />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </PaperProvider>
+    </AuthProvider>
   );
 }

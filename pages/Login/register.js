@@ -1,10 +1,13 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, ActivityIndicator } from "react-native";
 import AuthService from "../../services/authService"; // <-- import da classe
 
-const auth = new AuthService(); // <-- instancia a classe
+const authService = new AuthService(); // <-- instancia a classe
 
 export default function Register({ navigation }) {
+
+  const [isLoading, setIsLoading] = useState(false);
+  
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -63,8 +66,16 @@ export default function Register({ navigation }) {
   };
 
   const handleRegister = async () => {
+
+    if (!nome || !email || !password) {
+        Alert.alert("Erro", "Preencha os campos obrigatórios");
+        return;
+    }
+
+    setIsLoading(true);
+
     try {
-      await auth.register({
+      await authService.register({
         nome,
         email,
         password,
@@ -80,6 +91,8 @@ export default function Register({ navigation }) {
       navigation.navigate("login");
     } catch (error) {
       Alert.alert("Erro", error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -185,11 +198,20 @@ export default function Register({ navigation }) {
         </>
       )}
 
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Registrar</Text>
+      {/* 5. BOTÃO COM LOADING */}
+      <TouchableOpacity 
+        style={[styles.button, isLoading && styles.buttonDisabled]} 
+        onPress={handleRegister}
+        disabled={isLoading} // Bloqueia clique
+      >
+        {isLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+        ) : (
+            <Text style={styles.buttonText}>Registrar</Text>
+        )}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+      <TouchableOpacity onPress={() => navigation.navigate("login")}>
         <Text style={styles.link}>Já tem conta? Entrar</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -225,4 +247,5 @@ const styles = StyleSheet.create({
   stateInput: {
     flex: 1, // Ocupa 25% da linha
   },
+  buttonDisabled: { backgroundColor: "#8abdfc" },
 });

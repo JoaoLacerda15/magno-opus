@@ -1,76 +1,49 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ref, get } from 'firebase/database';
 import { auth, realtimeDB } from '../firebase/firebaseService';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUserState] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        if (isMounted) setUser(null);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        await firebaseUser.reload();
-
-        if (!firebaseUser.emailVerified) {
-          console.log("Usuário sem email verificado.");
-          if (isMounted) setUser(null);
-          return;
-        }
-
-        const uid = firebaseUser.uid;
-
-        // 🔥 BUSCA NO CAMINHO CORRETO
-        const userRef = ref(realtimeDB, `users/${uid}`);
-        const snap = await get(userRef);
-
-        if (snap.exists() && isMounted) {
-          const userData = snap.val();
-
-          setUser({
-            uid,
-            ...userData, // nome, email, cpf, tags, etc
-          });
-        } else {
-          console.log("Usuário não encontrado no caminho users/uid");
-          if (isMounted) setUser(null);
-        }
-
-      } catch (err) {
-        console.error("Erro ao carregar usuário:", err);
-        if (isMounted) setUser(null);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      unsubscribe();
-    };
-  }, []);
-
-  const logout = async () => {
-    try {
-      await signOut(auth);
-      setUser(null);
-      return { success: true };
-    } catch (error) {
-      return { success: false, msg: error.message };
+  const setUser = async (userData) => {
+    setUserState(userData);
+    if (userData) {
+      await AsyncStorage.setItem("@magnoopus:user", JSON.stringify(userData));
+    } else {
+      await AsyncStorage.removeItem("@magnoopus:user");
     }
   };
 
+  useEffect(() => {
+    // Ao abrir o App, verifica se tem usuário salvo no celular
+    const loadStorageData = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem("@magnoopus:user");
+        if (storedUser) {
+          setUserState(JSON.parse(storedUser));
+        }
+      } catch (error) {
+        console.error("Erro ao carregar usuário do storage:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStorageData();
+  }, []);
+
+  const logout = async () => {
+    // Limpa o estado e o storage
+    await setUser(null); 
+    return { success: true };
+  };
+
   return (
+    // Passamos a nova função setUser que salva no storage automaticamente
     <AuthContext.Provider value={{ user, setUser, loading, logout }}>
       {!loading && children}
     </AuthContext.Provider>
