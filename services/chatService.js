@@ -36,6 +36,24 @@ export async function criarChat(id_cliente, id_trabalhador, dadosContrato = {}) 
   }
 }
 
+export async function atualizarContratoChat(chatId, dadosContrato) {
+    try {
+        const contratoRef = ref(realtimeDB, `chats/${chatId}/contrato`);
+        const statusRef = ref(realtimeDB, `chats/${chatId}/status`);
+
+        await set(contratoRef, {
+            ...dadosContrato,
+            status_contrato: "ativo" // Agora o contrato vale!
+        });
+        
+        await set(statusRef, "ativo"); // Chat ativo
+        
+        console.log("✅ Contrato atualizado no chat!");
+    } catch (error) {
+        console.error("Erro ao atualizar contrato:", error);
+    }
+}
+
 /**
  * Busca todos os chats relacionados a um usuário (cliente ou trabalhador).
  * @param {string} userId - ID do usuário logado.
