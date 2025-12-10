@@ -3,14 +3,13 @@ import { View, StyleSheet, Animated, FlatList, Text, ActivityIndicator, Touchabl
 import { Card } from "react-native-paper";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
 
 import { getAgendaUsuario } from "../../services/agendaService";
 
 import { useAuth } from "../../context/authContext";
 
-import ScheduleModal from "../../components/ScheduleModal";
 import BarraNavegacao from "../../components/navbar";
 
 // ---------- Calendário PT-BR ----------
@@ -36,8 +35,6 @@ export default function ScheduleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { user: userLogado } = useAuth();
-
-  const insets = useSafeAreaInsets();
 
   // 1. Lógica de Identidade (Igual ao PerfilPP)
   const targetUserId = route.params?.userId || userLogado?.id || userLogado?.uid;
@@ -128,57 +125,60 @@ export default function ScheduleScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#f1f5f9", paddingTop: insets.top, paddingBottom: insets.bottom }}>
-      <View style={styles.container}>
-        
-        <Text style={styles.screenTitle}>
-            {isOwner ? "Minha Agenda" : "Agenda Disponível"}
-        </Text>
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: "#f1f5f9" }}>
+        <View style={styles.container}>
+          
+          <Text style={styles.screenTitle}>
+              {isOwner ? "Minha Agenda" : "Agenda Disponível"}
+          </Text>
 
-        <Card style={styles.card}>
-          <Calendar
-            onDayPress={handleDayPress}
-            markedDates={{
-              ...markedDates,
-              ...(selectedDate ? { [selectedDate]: { selected: true, selectedColor: "#2563eb" } } : {}),
-            }}
-            theme={{ todayTextColor: "#2563eb", selectedDayBackgroundColor: "#2563eb", selectedDayTextColor: "#fff", arrowColor: "#2563eb" }}
+          <Card style={styles.card}>
+            <Calendar
+              onDayPress={handleDayPress}
+              markedDates={{
+                ...markedDates,
+                ...(selectedDate ? { [selectedDate]: { selected: true, selectedColor: "#2563eb" } } : {}),
+              }}
+              theme={{ todayTextColor: "#2563eb", selectedDayBackgroundColor: "#2563eb", selectedDayTextColor: "#fff", arrowColor: "#2563eb" }}
+            />
+          </Card>
+
+          <Text style={styles.agendaTitle}>
+              {selectedDate ? `Eventos de ${formatarData(selectedDate)}` : "Selecione uma data para ver detalhes"}
+          </Text>
+
+          <FlatList
+              data={eventsOfDay}
+              keyExtractor={(item, index) => index.toString()}
+              contentContainerStyle={{ paddingBottom: 100 }}
+              ListEmptyComponent={selectedDate ? (<Text style={styles.noEventsText}>Nenhum evento para este dia.</Text>) : null}
+              renderItem={({ item }) => {
+                const statusInfo = getStatusInfo(item.status);
+                return (
+                  <TouchableOpacity onPress={() => handleShowDetails(item)} activeOpacity={0.7}>
+                      <Card style={styles.eventCard}>
+                          <View style={styles.cardContent}>
+                              <View style={[styles.statusLine, { backgroundColor: statusInfo.color }]} />
+                              <View style={{ flex: 1 }}>
+                                  <View style={{flexDirection:'row', justifyContent:'space-between'}}>
+                                      <Text style={styles.eventTitle}>{item.servico || "Serviço"}</Text>
+                                      {item.time && <Text style={styles.timeText}>{item.time}</Text>}
+                                  </View>
+                                  <Text style={styles.eventSubtitle}>{item.nomeCliente ? `${item.nomeCliente}` : "Cliente não informado"}</Text>
+                                  <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
+                                      <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
+                                  </View>
+                              </View>
+                              <Ionicons name="information-circle-outline" size={24} color="#ccc" style={{marginLeft: 10}} />
+                          </View>
+                      </Card>
+                  </TouchableOpacity>
+                );
+              }}
           />
-        </Card>
 
-        <Text style={styles.agendaTitle}>
-            {selectedDate ? `Eventos de ${formatarData(selectedDate)}` : "Selecione uma data para ver detalhes"}
-        </Text>
-
-        <FlatList
-            data={eventsOfDay}
-            keyExtractor={(item, index) => index.toString()}
-            contentContainerStyle={{ paddingBottom: 100 }}
-            ListEmptyComponent={selectedDate ? (<Text style={styles.noEventsText}>Nenhum evento para este dia.</Text>) : null}
-            renderItem={({ item }) => {
-              const statusInfo = getStatusInfo(item.status);
-              return (
-                <TouchableOpacity onPress={() => handleShowDetails(item)} activeOpacity={0.7}>
-                    <Card style={styles.eventCard}>
-                        <View style={styles.cardContent}>
-                            <View style={[styles.statusLine, { backgroundColor: statusInfo.color }]} />
-                            <View style={{ flex: 1 }}>
-                                <View style={{flexDirection:'row', justifyContent:'space-between'}}>
-                                    <Text style={styles.eventTitle}>{item.servico || "Serviço"}</Text>
-                                    {item.time && <Text style={styles.timeText}>{item.time}</Text>}
-                                </View>
-                                <Text style={styles.eventSubtitle}>{item.nomeCliente ? `${item.nomeCliente}` : "Cliente não informado"}</Text>
-                                <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
-                                    <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
-                                </View>
-                            </View>
-                            <Ionicons name="information-circle-outline" size={24} color="#ccc" style={{marginLeft: 10}} />
-                        </View>
-                    </Card>
-                </TouchableOpacity>
-              );
-            }}
-        />
+        </View>
 
         {isOwner && selectedDate && (
             <View style={styles.floatingButtonContainer}>
@@ -189,9 +189,9 @@ export default function ScheduleScreen() {
             </View>
         )}
 
+        <BarraNavegacao/>
       </View>
-      <BarraNavegacao/>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -276,5 +276,34 @@ const styles = StyleSheet.create({
       fontSize: 12,
       fontWeight: 'bold',
       marginTop: 4
-  }
+  },
+  floatingButtonContainer: {
+    position: 'absolute',
+    width: '100%',
+    bottom: '15%', // Distância do fundo
+    alignItems: 'center',
+    justifyContent: 'center',  // Distância da direita
+    zIndex: 10, // Garante que fique acima da lista
+  },
+  btnFloating: {
+    flexDirection: 'row',
+    backgroundColor: '#2563eb', // Azul principal
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 30, // Borda arredondada (formato pílula)
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Sombra para dar destaque (Elevation no Android / Shadow no iOS)
+    elevation: 5, 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  btnFloatingText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8, // Espaço entre o ícone e o texto
+  },
 });

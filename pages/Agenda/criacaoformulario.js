@@ -86,7 +86,7 @@ export default function CriacaoFormulario({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f1f5f9" }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f1f5f9" }}>
         <View style={styles.container}>
         <ScrollView>
         <Card style={styles.card}>
