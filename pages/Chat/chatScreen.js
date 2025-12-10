@@ -15,6 +15,7 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import { ref, onValue, push, set } from "firebase/database";
 import { realtimeDB } from "../../firebase/firebaseService";
 import { useAuth } from "../../context/authContext";
+import MenuChat from "./MenuChat";
 
 export default function ChatScreen() {
   const route = useRoute();
@@ -28,6 +29,8 @@ export default function ChatScreen() {
 
   const [mensagens, setMensagens] = useState([]);
   const [novaMensagem, setNovaMensagem] = useState("");
+
+  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
     if (!chatId) return;
@@ -119,8 +122,25 @@ export default function ChatScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{outroUsuario?.nome || "Chat"}</Text>
-      </View>
+
+         <Text style={styles.headerTitle}>
+          {outroUsuario?.nome || "Chat"}
+         </Text>
+
+           {/* Botão do MenuChat */}
+         <TouchableOpacity
+           onPress={() => setMenuVisible(true)}
+            style={{ padding: 4 }}
+          >
+            <Ionicons name="menu" size={26} color="#333" />
+         </TouchableOpacity>
+       </View>
+         <MenuChat
+           visible={menuVisible}
+           onClose={() => setMenuVisible(false)}
+           chatId={chatId}
+           outroUsuario={outroUsuario}
+         />
 
       <FlatList
         ref={flatListRef}
@@ -149,19 +169,24 @@ export default function ChatScreen() {
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
-  );
+);
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  header: { 
-      padding: 16, 
-      paddingTop: 50, // Ajuste para StatusBar
-      borderBottomWidth: 1, 
-      borderBottomColor: "#eee",
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10
+   header: { 
+    padding: 16,
+    paddingTop: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+   headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333'
   },
   messageRow: {
     marginBottom: 12,

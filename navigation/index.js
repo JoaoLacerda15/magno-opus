@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 // Renomiei tudo que estava tudo errado essa bomba aqui
 import MainLayout from '../components/MainLayout';
 import Home from "../pages/Home/Home";
+//import MenuChat from "../pages/Chat/MenuChat";
 import Notification from "../pages/Notificacao/notification";
 import PerfilA from "../pages/Notificacao/perfilA";
 import ContestarStrike from "../pages/Notificacao/contestarstrike"; // Era contestarstrike (CSGO?????)
