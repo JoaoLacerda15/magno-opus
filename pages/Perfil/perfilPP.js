@@ -14,35 +14,38 @@ import {
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Calendar, LocaleConfig } from 'react-native-calendars';
+
 import AuthService from "../../services/authService";
 import BarraNavegacao from "../../components/navbar";
 import { useAuth } from "../../context/authContext";
-import { criarChat } from "../../services/chatService";
+
+import { criarChat, criarAgendamentoPendente } from "../../services/chatService"; 
 import { enviarNotificacao } from "../../services/notification";
+import { getBusyDates } from "../../services/availabilityService";
 
 const authService = new AuthService();
 
 export default function PerfilPP() {
   const route = useRoute();
   const navigation = useNavigation();
-
   const { user: userLogado, logout } = useAuth();
-
   const targetUserId = route.params?.userId || userLogado?.id || userLogado?.uid;
 
   const [perfilExibido, setPerfilExibido] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // --- ESTADOS DO FORMULÁRIO DE PROPOSTA ---
+  // Estados Formulário
   const [modalVisible, setModalVisible] = useState(false);
   const [etapa, setEtapa] = useState(1);
   const [loadingEnvio, setLoadingEnvio] = useState(false);
 
-  // Campos do formulário
   const [valorOferta, setValorOferta] = useState("");
   const [servicosSelecionados, setServicosSelecionados] = useState([]);
   const [descricao, setDescricao] = useState("");
   const [endereco, setEndereco] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [busyDates, setBusyDates] = useState({});
 
   const handleLogout = () => {
     Alert.alert(
@@ -102,13 +105,12 @@ export default function PerfilPP() {
 
   // --- LÓGICA DO MODAL ---
 
-  const abrirModalProposta = () => {
-    setEtapa(1);
-    setValorOferta("");
-    setServicosSelecionados([]);
-    setDescricao("");
-    setEndereco("");
+  const abrirModalProposta = async () => {
+    setEtapa(1); setValorOferta(""); setServicosSelecionados([]); setDescricao(""); setEndereco(""); setSelectedDate("");
     setModalVisible(true);
+    // getBusyDates agora retorna apenas o que está "confirmed"
+    const dates = await getBusyDates(targetUserId);
+    setBusyDates(dates);
   };
 
   const toggleServico = (tag) => {
@@ -124,47 +126,53 @@ export default function PerfilPP() {
   };
 
   const avancarEtapa = () => {
-    if (etapa === 1) {
-      if (!valorOferta) return Alert.alert("Atenção", "Informe um valor para a oferta.");
-      setEtapa(2);
-    } else if (etapa === 2) {
-      if (servicosSelecionados.length === 0) return Alert.alert("Atenção", "Selecione pelo menos um serviço.");
-      setEtapa(3);
-    }
+    if (etapa === 1 && !valorOferta) return Alert.alert("Atenção", "Informe valor.");
+    if (etapa === 1) setEtapa(2);
+    else if (etapa === 2 && servicosSelecionados.length === 0) return Alert.alert("Atenção", "Selecione serviço.");
+    else if (etapa === 2) setEtapa(3);
+    else if (etapa === 3 && (!descricao || !endereco)) return Alert.alert("Atenção", "Preencha tudo.");
+    else if (etapa === 3) setEtapa(4);
   };
 
-    const finalizarProposta = async () => {
-    if (!descricao || !endereco) return Alert.alert("Atenção", "Preencha a descrição e o endereço.");
+  const finalizarProposta = async () => {
+    if (!descricao || !endereco) return Alert.alert("Atenção", "Preencha tudo.");
+    if (!selectedDate) return Alert.alert("Atenção", "Selecione a data.");
 
     setLoadingEnvio(true);
 
     try {
       const dadosCompletos = {
         valor: valorOferta,
-        servicos: servicosSelecionados, // Array de strings
+        servicos: servicosSelecionados,
         descricao: descricao,
         endereco: endereco,
-        // Dados extras para o contrato do chat
+        dataServico: selectedDate, // Data vai no contrato
+        
         servico: servicosSelecionados.join(", "), 
         nome_contratante: userLogado.nome,
-        nome_contratado: perfilExibido.nome
+        nome_contratado: perfilExibido.nome,
+        idCliente: userLogado.id || userLogado.uid // Importante para a agenda
       };
 
       const myId = userLogado.id || userLogado.uid;
 
-      // 1. Cria o Chat (para termos onde conversar)
-      const chatId = await criarChat(myId, perfilExibido.id, dadosCompletos);
+      const chatId = await criarChat(myId, perfilExibido.id);
 
-      // 2. Envia a Notificação baseada nas etapas
       await enviarNotificacao(perfilExibido.id, dadosCompletos, userLogado, chatId);
 
+      await criarAgendamentoPendente(perfilExibido.id, selectedDate, {
+          idCliente: myId,
+          nomeCliente: userLogado.nome,
+          servico: servicosSelecionados.join(", "),
+          chatId: chatId
+      });
+
       setModalVisible(false);
-      Alert.alert("Sucesso", "Proposta enviada e notificação criada!");
-      
-      // 3. Vai para o chat
+      Alert.alert("Sucesso", "Proposta enviada!");
       navigation.navigate('chatScreen', { chatId, targetUserId: perfilExibido.id });
 
     } catch (error) {
+      console.error(error);
       Alert.alert("Erro", "Falha ao enviar proposta.");
     } finally {
       setLoadingEnvio(false);
@@ -234,6 +242,31 @@ export default function PerfilPP() {
         </View>
       );
     }
+
+    if (etapa === 4) {
+        return (
+          <View>
+            <Text style={styles.labelModal}>📅 Etapa 4: Escolha a Data</Text>
+            <Calendar
+              onDayPress={day => {
+                setSelectedDate(day.dateString);
+              }}
+              markedDates={{
+                ...busyDates, // Blocked dates from database
+                [selectedDate]: { selected: true, disableTouchEvent: true, selectedColor: '#1565C0' } // User selection
+              }}
+              minDate={new Date().toISOString().split('T')[0]} // Cannot select past dates
+              theme={{
+                todayTextColor: '#1565C0',
+                arrowColor: '#1565C0',
+              }}
+            />
+            <Text style={{marginTop: 10, textAlign:'center', color: '#666'}}>
+                {selectedDate ? `Data selecionada: ${selectedDate.split('-').reverse().join('/')}` : "Selecione um dia disponível"}
+            </Text>
+          </View>
+        );
+      }
   };
 
   // PROFISSÃO = primeira tag marcada
@@ -366,51 +399,32 @@ export default function PerfilPP() {
           </View>
 
           {/* --- MODAL DE PROPOSTA --- */}
-          <Modal
-            visible={modalVisible}
-            transparent={true}
-            animationType="slide"
-            onRequestClose={() => setModalVisible(false)}
-          >
+          <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
             <View style={styles.modalOverlay}>
               <View style={styles.modalContent}>
-                
-                {/* Cabeçalho do Modal */}
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Nova Proposta ({etapa}/3)</Text>
-                  <TouchableOpacity onPress={() => setModalVisible(false)}>
-                    <Ionicons name="close" size={24} color="#333" />
-                  </TouchableOpacity>
+                  <Text style={styles.modalTitle}>Nova Proposta ({etapa}/4)</Text>
+                  <TouchableOpacity onPress={() => setModalVisible(false)}><Ionicons name="close" size={24} color="#333" /></TouchableOpacity>
                 </View>
 
-                {/* Corpo Dinâmico */}
                 <View style={styles.modalBody}>
                   {renderEtapaContent()}
                 </View>
 
-                {/* Rodapé com Botões */}
                 <View style={styles.modalFooter}>
                   {etapa > 1 && (
                     <TouchableOpacity style={styles.btnSecondary} onPress={() => setEtapa(etapa - 1)}>
                       <Text style={styles.btnTextSecondary}>Voltar</Text>
                     </TouchableOpacity>
                   )}
-
                   <TouchableOpacity 
                     style={styles.btnPrimary} 
-                    onPress={etapa === 3 ? finalizarProposta : avancarEtapa}
+                    onPress={etapa === 4 ? finalizarProposta : avancarEtapa}
                     disabled={loadingEnvio}
                   >
-                    {loadingEnvio ? (
-                      <ActivityIndicator color="#fff" size="small"/>
-                    ) : (
-                      <Text style={styles.btnTextPrimary}>
-                        {etapa === 3 ? "Enviar Proposta" : "Próximo"}
-                      </Text>
-                    )}
+                    {loadingEnvio ? <ActivityIndicator color="#fff"/> : <Text style={styles.btnTextPrimary}>{etapa === 4 ? "Enviar Proposta" : "Próximo"}</Text>}
                   </TouchableOpacity>
                 </View>
-
               </View>
             </View>
           </Modal>

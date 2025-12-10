@@ -24,6 +24,7 @@ export async function enviarNotificacao(destinatarioId, dadosProposta, remetente
         servicos: dadosProposta.servicos,
         descricao: dadosProposta.descricao,
         endereco: dadosProposta.endereco,
+        dataServico: dadosProposta.dataServico,
         remetenteId: remetente.id || remetente.uid,
         remetenteNome: remetente.nome
       }

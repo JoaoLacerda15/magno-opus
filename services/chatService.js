@@ -1,4 +1,4 @@
-import { ref, push, set, get, query, orderByChild, equalTo, remove } from "firebase/database";
+import { ref, push, set, get, query, orderByChild, equalTo, remove, update } from "firebase/database";
 import { realtimeDB } from "../firebase/firebaseService";
 
 /**
@@ -26,7 +26,6 @@ export async function criarChat(id_cliente, id_trabalhador, dadosContrato = {}) 
     };
 
     await set(novoChatRef, novoChat);
-    console.log("✅ Chat (contrato) criado com sucesso:", novoChatRef.key);
     return novoChatRef.key;
   } catch (error) {
     console.error("Erro ao criar chat:", error);
@@ -34,28 +33,56 @@ export async function criarChat(id_cliente, id_trabalhador, dadosContrato = {}) 
   }
 }
 
+export async function criarAgendamentoPendente(idTrabalhador, dataServico, detalhes) {
+    try {
+        if (!dataServico || !idTrabalhador) return;
+
+        // Caminho: agenda / id_trabalhador / data (YYYY-MM-DD)
+        const agendaRef = ref(realtimeDB, `agenda/${idTrabalhador}/${dataServico}`);
+        
+        const dadosAgenda = {
+            ...detalhes, // idCliente, nomeCliente, servico, chatId
+            status: "pendente", // <--- O SEGREDO ESTÁ AQUI
+            criadoEm: new Date().toISOString()
+        };
+
+        await set(agendaRef, dadosAgenda);
+        console.log(`📅 Agenda criada (Pendente) para ${idTrabalhador} no dia ${dataServico}`);
+    } catch (error) {
+        console.error("Erro ao criar agendamento pendente:", error);
+        throw error;
+    }
+}
+
+export async function confirmarAgendamento(idTrabalhador, dataServico) {
+    try {
+        if (!dataServico || !idTrabalhador) return;
+
+        const statusRef = ref(realtimeDB, `agenda/${idTrabalhador}/${dataServico}/status`);
+        await set(statusRef, "confirmed"); // <--- AQUI A TABELA VIRA VÁLIDA
+        
+        console.log(`✅ Agendamento validado na agenda para ${dataServico}`);
+    } catch (error) {
+        console.error("Erro ao confirmar agendamento:", error);
+    }
+}
+
 export async function atualizarContratoChat(chatId, dadosContrato) {
     try {
         const contratoRef = ref(realtimeDB, `chats/${chatId}/contrato`);
         const statusRef = ref(realtimeDB, `chats/${chatId}/status`);
 
-        // CORREÇÃO: Usando a variável correta 'dadosContrato'
         const contratoFinal = {
-            valor: dadosContrato.valor,
-            servicos: dadosContrato.servicos, 
-            descricao: dadosContrato.descricao,
-            endereco: dadosContrato.endereco, 
-            remetenteNome: dadosContrato.remetenteNome || "", 
+            ...dadosContrato, // Aqui entram valor, endereço, data, etc.
             dataInicio: new Date().toISOString(),
             status_contrato: "ativo"
         };
         
         await set(contratoRef, contratoFinal);
         await set(statusRef, "ativo"); 
-        
-        console.log("✅ Contrato atualizado e ativado!");
+        console.log("✅ Contrato preenchido e ativado no Chat!");
     } catch (error) {
-        console.error("Erro ao atualizar contrato:", error);
+        console.error("Erro atualizar contrato:", error);
     }
 }
 
@@ -79,6 +106,47 @@ export async function recusarContratoChat(chatId) {
         console.error("Erro ao deletar chat recusado:", error);
         throw error;
     }
+}
+
+export async function concluirContratoChat(chatId, userId) {
+  try {
+    const chatRef = ref(realtimeDB, `chats/${chatId}`);
+    const snapshot = await get(chatRef);
+
+    if (!snapshot.exists()) {
+      throw new Error("Chat não encontrado");
+    }
+
+    const chatData = snapshot.val();
+    const { id_cliente, id_trabalhador } = chatData;
+
+    const atualizacao = {};
+    atualizacao[`chats/${chatId}/conclusoes/${userId}`] = true;
+
+    await update(ref(realtimeDB), atualizacao);
+
+    const conclusoes = chatData.conclusoes || {};
+    conclusoes[userId] = true;
+
+    const clienteConcluiu = conclusoes[id_cliente] === true;
+    const trabalhadorConcluiu = conclusoes[id_trabalhador] === true;
+
+    if (clienteConcluiu && trabalhadorConcluiu) {
+        console.log("✅ Ambos concluíram. Apagando chat...");
+        await remove(chatRef);
+        return "DELETED";
+    } else {
+        console.log("⏳ Aguardando a outra parte...");
+        await update(ref(realtimeDB), {
+            [`chats/${chatId}/contrato/status_contrato`]: "aguardando_conclusao_mutua"
+        });
+        return "WAITING";
+    }
+
+  } catch (error) {
+    console.error("Erro ao concluir contrato:", error);
+    throw error;
+  }
 }
 
 /**

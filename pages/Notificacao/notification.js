@@ -9,7 +9,7 @@ import BarraNavegacao from "../../components/navbar";
 import { ref, onValue, remove, update } from "firebase/database";
 import { realtimeDB } from "../../firebase/firebaseService";
 import { useAuth } from "../../context/authContext";
-import { atualizarContratoChat, recusarContratoChat } from "../../services/chatService";
+import { atualizarContratoChat, recusarContratoChat, confirmarAgendamento } from "../../services/chatService";
 import { notificarRecusa } from "../../services/notification";
 
 // ------------------- NOTIFICAÇÕES -------------------
@@ -46,21 +46,23 @@ export default function NotificationsPage() {
   // --- LÓGICA DE ACEITAR ---
   const handleAceitar = async (item) => {
     try {
-        if (!item.chatIdRelacionado) {
-            Alert.alert("Erro", "Chat não encontrado para esta proposta.");
-            return;
-        }
+        if (!item.chatIdRelacionado) return Alert.alert("Erro", "Chat não encontrado.");
 
-        // 1. Atualiza o chat com os dados do contrato
         await atualizarContratoChat(item.chatIdRelacionado, item.dadosDetalhados);
 
-        // 2. Deleta a notificação
+        if (item.dadosDetalhados.dataServico) {
+          await confirmarAgendamento(myId, item.dadosDetalhados.dataServico);
+          console.log("Agenda confirmada para:", item.dadosDetalhados.dataServico);
+        } else {
+            console.warn("⚠️ Data de serviço não encontrada na notificação! (Bug antigo)");
+        }
+
         const itemRef = ref(realtimeDB, `notificacoes/${myId}/${item.id}`);
         await remove(itemRef);
 
-        Alert.alert("Sucesso", "Proposta aceita! O contrato foi ativado no chat.");
+        Alert.alert("Sucesso", "Proposta aceita e agenda atualizada!");
     } catch (error) {
-        Alert.alert("Erro", "Não foi possível aceitar a proposta.");
+        Alert.alert("Erro", "Falha ao aceitar.");
     }
   };
 
