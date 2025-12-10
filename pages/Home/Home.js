@@ -17,6 +17,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 
 import AuthService from "../../services/authService";
 import { useAuth } from "../../context/authContext";
+import { listarChatsUsuario } from "../../services/chatService";
 
 const auth = new AuthService();
 const { width } = Dimensions.get("window");
@@ -39,6 +40,8 @@ export default function Home() {
   const [selectedTag, setSelectedTag] = useState(null);
   const [loadingBusca, setLoadingBusca] = useState(true);
 
+  const [idsComChat, setIdsComChat] = useState(new Set());
+
   const tagsDisponiveis = [
     "limpeza",
     "pedreiro",
@@ -50,6 +53,40 @@ export default function Home() {
     "Encanador",
     "Eletricista",
   ];
+
+  useEffect(() => {
+    async function carregarDadosIniciais() {
+        if (!loggedUserId) return;
+
+        setLoadingBusca(true);
+        try {
+            // Busca os chats existentes
+            const meusChats = await listarChatsUsuario(loggedUserId);
+            
+            // Cria um Set com os IDs das outras pessoas
+            const idsBloqueados = new Set();
+            meusChats.forEach(chat => {
+                const outroId = chat.id_cliente === loggedUserId ? chat.id_trabalhador : chat.id_cliente;
+                if (outroId) idsBloqueados.add(outroId);
+            });
+
+            setIdsComChat(idsBloqueados);
+
+            // Agora sim, executa a busca inicial passando os IDs bloqueados manualmente
+            // (pois o estado setIdsComChat pode não ter atualizado ainda neste ciclo)
+            await executarBusca("", null, idsBloqueados);
+
+        } catch (error) {
+            console.error("Erro ao carregar chats:", error);
+            // Se der erro nos chats, busca usuários mesmo assim
+            await executarBusca(""); 
+        } finally {
+            setLoadingBusca(false);
+        }
+    }
+
+    carregarDadosIniciais();
+  }, [loggedUserId]);
 
   const executarBusca = async (query, tag = selectedTag) => {
     setLoadingBusca(true)
@@ -69,10 +106,6 @@ export default function Home() {
       setLoadingBusca(false);
     }
   };
-
-  useEffect(() => {
-    executarBusca(""); // Chama sem filtros para trazer tudo
-  }, []);
 
   const handleSearch = (text) => {
     setSearch(text);

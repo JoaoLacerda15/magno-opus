@@ -1,43 +1,135 @@
 // App.js
-import React from "react";
-import { View, Text, FlatList, TouchableOpacity, Image, StyleSheet } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, FlatList, TouchableOpacity, Image, StyleSheet, ActivityIndicator } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import BarraNavegacao from "../../components/navbar";
 
+import { ref, onValue, remove, update } from "firebase/database";
+import { realtimeDB } from "../../firebase/firebaseService";
+import { useAuth } from "../../context/authContext";
+import { atualizarContratoChat, recusarContratoChat } from "../../services/chatService";
+import { notificarRecusa } from "../../services/notification";
+
 // ------------------- NOTIFICAÇÕES -------------------
 export default function NotificationsPage() {
-  const data = [
-    {
-      id: "1",
-      title: "Serviço Concluído",
-      profileName: "Ana Clara",
-      service: "Manutenção Elétrica",
-      date: "07/06/2025",
-      time: "14:30",
-      rating: 4.5,
-      contestar: false,
-    },
-    {
-      id: "2",
-      title: "Strike",
-      profileName: "Joana Silva",
-      service: "Limpeza Residencial",
-      date: "08/06/2025",
-      time: "09:00",
-      rating: 2.0,
-      contestar: true,
-    },
-  ];
+  const [notificacoes, setNotificacoes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  const { user } = useAuth();
+  const myId = user?.id || user?.uid;
+
+  useEffect(() => {
+    if (!myId) return;
+
+    const notifRef = ref(realtimeDB, `notificacoes/${myId}`);
+
+    // Ouve as notificações em tempo real
+    const unsubscribe = onValue(notifRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const dados = snapshot.val();
+        const lista = Object.entries(dados).map(([key, val]) => ({
+          id: key,
+          ...val
+        })).sort((a, b) => new Date(b.data) - new Date(a.data));
+        setNotificacoes(lista);
+      } else {
+        setNotificacoes([]);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [myId]);
+
+  // --- LÓGICA DE ACEITAR ---
+  const handleAceitar = async (item) => {
+    try {
+        if (!item.chatIdRelacionado) {
+            Alert.alert("Erro", "Chat não encontrado para esta proposta.");
+            return;
+        }
+
+        // 1. Atualiza o chat com os dados do contrato
+        await atualizarContratoChat(item.chatIdRelacionado, item.dadosDetalhados);
+
+        // 2. Deleta a notificação
+        const itemRef = ref(realtimeDB, `notificacoes/${myId}/${item.id}`);
+        await remove(itemRef);
+
+        Alert.alert("Sucesso", "Proposta aceita! O contrato foi ativado no chat.");
+    } catch (error) {
+        Alert.alert("Erro", "Não foi possível aceitar a proposta.");
+    }
+  };
+
+  // --- LÓGICA DE RECUSAR ---
+  const handleRecusar = async (item) => {
+    try {
+      // 1. Deleta o chat
+      if (item.chatIdRelacionado) {
+          await recusarContratoChat(item.chatIdRelacionado);
+      }
+
+      // 2. Atualiza a notificação ATUAL (para quem recusou ver que recusou)
+      const itemRef = ref(realtimeDB, `notificacoes/${myId}/${item.id}`);
+      await update(itemRef, {
+          tipo: "recusado", 
+          titulo: "Você recusou esta proposta",
+          lida: true
+      });
+
+      // 3. Notifica a OUTRA PESSOA (Remetente)
+      // Precisamos do ID do remetente que está dentro de dadosDetalhados
+      const idRemetente = item.dadosDetalhados?.remetenteId;
+      const nomeServico = item.dadosDetalhados?.servicos 
+          ? (Array.isArray(item.dadosDetalhados.servicos) ? item.dadosDetalhados.servicos[0] : item.dadosDetalhados.servicos) 
+          : "serviço";
+      
+      if (idRemetente) {
+          const meuNome = user.nome || "O usuário";
+          await notificarRecusa(idRemetente, meuNome, nomeServico);
+      }
+
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Erro", "Falha ao recusar proposta.");
+    }
+  };
+
+  const handleLimpar = async (id) => {
+      const itemRef = ref(realtimeDB, `notificacoes/${myId}/${id}`);
+      await remove(itemRef);
+  }
+
+  if (loading) {
+    return (
+        <View style={styles.center}>
+            <ActivityIndicator size="large" color="#007BFF"/>
+        </View>
+    );
+  }
 
   return (
     <View style={styles.principal}>
       <FlatList
         contentContainerStyle={{ padding: 16 }}
-        data={data}
+        data={notificacoes}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <NotificationCard {...item} />}
+        renderItem={({ item }) => (
+            <NotificationCard 
+                item={item} 
+                onAceitar={() => handleAceitar(item)} 
+                onRecusar={() => handleRecusar(item)}
+                onLimpar={() => handleLimpar(item.id)}
+            />
+        )}
+        ListEmptyComponent={
+            <Text style={{textAlign:'center', color:'#888', marginTop:20}}>
+                Nenhuma notificação no momento.
+            </Text>
+        }
       />
       <BarraNavegacao />
     </View>
@@ -45,52 +137,109 @@ export default function NotificationsPage() {
 }
 
 // ------------------- COMPONENTE DE NOTIFICAÇÃO -------------------
-function NotificationCard({ title, profileName, service, date, time, rating, contestar }) {
+function NotificationCard({ item, onAceitar, onRecusar, onLimpar }) {
   const navigation = useNavigation();
+
+  // Extraindo dados para facilitar leitura
+  const { titulo, tipo, dadosDetalhados, mensagem, data } = item;
+
+  const displayTitle = titulo || item.title || "Notificação";
+
+  const isStrike = displayTitle === "Strike";
+  const isProposta = tipo === "proposta"; // Proposta Pendente
+  const isRecusada = tipo === "recusado"; // Proposta Recusada
+
+  // Se for proposta, pega os dados detalhados, senão usa defaults
+  const profileName = dadosDetalhados?.remetenteNome || "Sistema";
+  const servicoNome = dadosDetalhados?.servicos 
+      ? (Array.isArray(dadosDetalhados.servicos) ? dadosDetalhados.servicos.join(", ") : dadosDetalhados.servicos)
+      : "Aviso";
+
+  const dataObj = new Date(data);
+  const dataFormatada = !isNaN(dataObj) ? dataObj.toLocaleDateString() : "";
+  const horaFormatada = !isNaN(dataObj) ? dataObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "";
 
   return (
     <View
       style={[
         styles.card,
-        title === "Strike" && {
-          backgroundColor: "#fff",
-          borderWidth: 6,
-          borderColor: "#BD4311",
-        },
+        isStrike && styles.cardStrike,
+        isRecusada && styles.cardRecusado, // Estilo cinza/vermelho se recusado
       ]}
     >
-      <Text style={styles.cardTitle}>{title}</Text>
+      <Text style={[
+          styles.cardTitle, 
+          isStrike && {color:'#BD4311'},
+          isRecusada && {color:'#666', textDecorationLine: 'line-through'} // Riscado se recusado
+      ]}>
+          {displayTitle}
+      </Text>
 
-      {/* FOTO NO TOPO DO CARD */}
       <View style={styles.topRow}>
-        <Image source={require("../../assets/profile.png")} style={styles.avatar} />
+        <Image source={require("../../assets/profile.png")} style={[styles.avatar, isRecusada && {opacity: 0.5}]} />
 
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={styles.profileName}>{profileName}</Text>
-          <Text>Referente a: {service}</Text>
-          <Text>Data: {date}</Text>
-          <Text>Hora: {time}</Text>
+          
+          {(isProposta || isRecusada) ? (
+            <>
+                <Text style={styles.label}>Serviço: <Text style={styles.info}>{servicoNome}</Text></Text>
+                <Text style={styles.label}>Valor: <Text style={styles.info}>R$ {dadosDetalhados?.valor}</Text></Text>
+                
+                {/* Se foi recusada, mostra um aviso extra */}
+                {isRecusada && (
+                    <Text style={{color: '#D32F2F', fontWeight:'bold', marginTop: 5}}>
+                        🚫 Você recusou esta oferta.
+                    </Text>
+                )}
+            </>
+          ) : (
+            <Text style={styles.info}>{mensagem}</Text>
+          )}
 
+          <Text style={styles.time}>{dataFormatada} às {horaFormatada}</Text>
+
+          {/* BOTÕES */}
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.btn} onPress={() => navigation.navigate("perfilA")}>
-              <Text style={styles.btnText}>Ver Detalhes</Text>
-            </TouchableOpacity>
+            
+            {/* Botões de Ação APENAS se for Proposta Pendente */}
+            {isProposta && (
+                <>
+                    <TouchableOpacity style={[styles.btn, {backgroundColor:'#4CAF50'}]} onPress={onAceitar}>
+                        <Text style={styles.btnText}>Aceitar</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity style={[styles.btn, {backgroundColor:'#F44336'}]} onPress={onRecusar}>
+                        <Text style={styles.btnText}>Recusar</Text>
+                    </TouchableOpacity>
+                </>
+            )}
 
-            {contestar && (
+            {/* Se for STRIKE: Contestar */}
+            {isStrike && (
               <TouchableOpacity
-                style={[styles.btn, { backgroundColor: "red" }]}
+                style={[styles.btn, { backgroundColor: "#D32F2F" }]}
                 onPress={() => navigation.navigate("contestarstrike")}
               >
-                <Text style={styles.btnText}>Contestar Strike</Text>
+                <Text style={styles.btnText}>Contestar</Text>
               </TouchableOpacity>
             )}
-          </View>
-        </View>
 
-        <View style={{ alignItems: "center" }}>
-          <Text style={{ fontWeight: "bold" }}>Avaliação</Text>
-          <Ionicons name="star" size={20} color="gold" />
-          <Text>{rating}</Text>
+            {/* Botão de Limpar para itens recusados ou avisos */}
+            {(isRecusada || (!isProposta && !isStrike)) && (
+                <TouchableOpacity style={[styles.btn, {backgroundColor:'#999'}]} onPress={onLimpar}>
+                    <Text style={styles.btnText}>Limpar</Text>
+                </TouchableOpacity>
+            )}
+            
+            {/* Ver Perfil (disponível em quase todos, menos se recusado para não poluir) */}
+            {!isRecusada && (
+                <TouchableOpacity style={[styles.btn, {backgroundColor:'#007BFF'}]} onPress={() => navigation.navigate("perfilA")}>
+                    <Text style={styles.btnText}>Ver Perfil</Text>
+                </TouchableOpacity>
+            )}
+
+          </View>
         </View>
       </View>
     </View>

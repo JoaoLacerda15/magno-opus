@@ -1,4 +1,4 @@
-import { ref, push, set, get, query, orderByChild, equalTo } from "firebase/database";
+import { ref, push, set, get, query, orderByChild, equalTo, remove } from "firebase/database";
 import { realtimeDB } from "../firebase/firebaseService";
 
 /**
@@ -18,12 +18,10 @@ export async function criarChat(id_cliente, id_trabalhador, dadosContrato = {}) 
       id_cliente,
       id_trabalhador,
       criadoEm: new Date().toISOString(),
-      status: "pendente", // ou "ativo", "concluído"
+      status: "pendente", 
       mensagens: {},
       contrato: {
-        servico: dadosContrato.servico || "Serviço não especificado",
-        valor: dadosContrato.valor || "A combinar",
-        descricao: dadosContrato.descricao || "",
+        status_contrato: "aguardando_aceite"
       },
     };
 
@@ -41,16 +39,45 @@ export async function atualizarContratoChat(chatId, dadosContrato) {
         const contratoRef = ref(realtimeDB, `chats/${chatId}/contrato`);
         const statusRef = ref(realtimeDB, `chats/${chatId}/status`);
 
-        await set(contratoRef, {
-            ...dadosContrato,
-            status_contrato: "ativo" // Agora o contrato vale!
-        });
+        // CORREÇÃO: Usando a variável correta 'dadosContrato'
+        const contratoFinal = {
+            valor: dadosContrato.valor,
+            servicos: dadosContrato.servicos, 
+            descricao: dadosContrato.descricao,
+            endereco: dadosContrato.endereco, 
+            remetenteNome: dadosContrato.remetenteNome || "", 
+            dataInicio: new Date().toISOString(),
+            status_contrato: "ativo"
+        };
         
-        await set(statusRef, "ativo"); // Chat ativo
+        await set(contratoRef, contratoFinal);
+        await set(statusRef, "ativo"); 
         
-        console.log("✅ Contrato atualizado no chat!");
+        console.log("✅ Contrato atualizado e ativado!");
     } catch (error) {
         console.error("Erro ao atualizar contrato:", error);
+    }
+}
+
+export async function recusarContratoChat(chatId) {
+    try {
+        if (!chatId) {
+            console.error("❌ Tentativa de deletar chat sem ID.");
+            return;
+        }
+
+        console.log(`🗑️ Tentando deletar chat ID: ${chatId}`);
+
+        // Referência direta para o chat
+        const chatRef = ref(realtimeDB, `chats/${chatId}`);
+        
+        // Remove o chat inteiro do banco de dados
+        await remove(chatRef);
+
+        console.log("✅ Chat deletado com sucesso.");
+    } catch (error) {
+        console.error("Erro ao deletar chat recusado:", error);
+        throw error;
     }
 }
 

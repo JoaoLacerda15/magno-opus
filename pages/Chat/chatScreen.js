@@ -123,24 +123,24 @@ export default function ChatScreen() {
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
 
-         <Text style={styles.headerTitle}>
-          {outroUsuario?.nome || "Chat"}
-         </Text>
+        <Text style={styles.headerTitle}>
+        {outroUsuario?.nome || "Chat"}
+        </Text>
 
-           {/* Botão do MenuChat */}
-         <TouchableOpacity
-           onPress={() => setMenuVisible(true)}
-            style={{ padding: 4 }}
-          >
-            <Ionicons name="menu" size={26} color="#333" />
-         </TouchableOpacity>
-       </View>
-         <MenuChat
-           visible={menuVisible}
-           onClose={() => setMenuVisible(false)}
-           chatId={chatId}
-           outroUsuario={outroUsuario}
-         />
+          {/* Botão do MenuChat */}
+        <TouchableOpacity
+          onPress={() => setMenuVisible(true)}
+          style={{ padding: 4 }}
+        >
+          <Ionicons name="menu" size={26} color="#333" />
+        </TouchableOpacity>
+      </View>
+        <MenuChat
+          visible={menuVisible}
+          onClose={() => setMenuVisible(false)}
+          chatId={chatId}
+          outroUsuario={outroUsuario}
+        />
 
       <FlatList
         ref={flatListRef}

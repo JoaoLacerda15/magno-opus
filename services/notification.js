@@ -4,7 +4,7 @@ import { realtimeDB } from "../firebase/firebaseService";
 /**
  * Envia uma notificação para um usuário específico
  */
-export async function enviarNotificacao(destinatarioId, dadosProposta, remetente) {
+export async function enviarNotificacao(destinatarioId, dadosProposta, remetente, chatId) {
   try {
     const notificacoesRef = ref(realtimeDB, `notificacoes/${destinatarioId}`);
     const novaNotifRef = push(notificacoesRef);
@@ -18,6 +18,7 @@ export async function enviarNotificacao(destinatarioId, dadosProposta, remetente
       data: new Date().toISOString(),
       lida: false,
       tipo: "proposta",
+      chatIdRelacionado: chatId,
       dadosDetalhados: {
         valor: dadosProposta.valor,
         servicos: dadosProposta.servicos,
@@ -33,4 +34,25 @@ export async function enviarNotificacao(destinatarioId, dadosProposta, remetente
     console.error("Erro ao enviar notificação:", error);
     throw error;
   }
+}
+
+export async function notificarRecusa(remetenteId, destinatarioNome, servicoNome) {
+    try {
+        const notifRef = ref(realtimeDB, `notificacoes/${remetenteId}`);
+        const novaNotifRef = push(notifRef);
+
+        await set(novaNotifRef, {
+            titulo: "Proposta Recusada",
+            mensagem: `Sua proposta para ${servicoNome} foi recusada por ${destinatarioNome}.`,
+            data: new Date().toISOString(),
+            lida: false,
+            tipo: "aviso_recusa", // Tipo diferente para apenas exibir
+            dadosDetalhados: {
+                remetenteNome: destinatarioNome // Para aparecer a foto/nome de quem recusou
+            }
+        });
+        console.log("✅ Remetente notificado sobre a recusa.");
+    } catch (error) {
+        console.error("Erro ao notificar recusa:", error);
+    }
 }

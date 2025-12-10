@@ -156,7 +156,7 @@ export default function PerfilPP() {
       const chatId = await criarChat(myId, perfilExibido.id, dadosCompletos);
 
       // 2. Envia a Notificação baseada nas etapas
-      await enviarNotificacao(perfilExibido.id, dadosCompletos, userLogado);
+      await enviarNotificacao(perfilExibido.id, dadosCompletos, userLogado, chatId);
 
       setModalVisible(false);
       Alert.alert("Sucesso", "Proposta enviada e notificação criada!");
