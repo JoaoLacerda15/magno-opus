@@ -14,6 +14,7 @@ import {
 import BarraNavegacao from "../../components/navbar";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AuthService from "../../services/authService";
 import { useAuth } from "../../context/authContext";
@@ -176,118 +177,120 @@ export default function Home() {
   // RENDERIZAÇÃO PRINCIPAL
   // -------------------------------
   return (
-    <View style={{ flex: 1, paddingBottom: '20%', paddingTop: '6%' }}>
-      <ScrollView style={styles.container}>
-        {/* 🔍 BARRA DE PESQUISA */}
-        <View style={styles.searchBar}>
-          <Icon name="search" size={24} color="gray" />
-          <TextInput
-            placeholder="Pesquisar nome ou serviço..."
-            style={{ flex: 1, marginLeft: 8 }}
-            value={search}
-            onChangeText={handleSearch}
-            onSubmitEditing={buscarApertarEnter}
-            returnKeyType="search"
-          />
-          <TouchableOpacity onPress={toggleMenu}>
-            <Icon name="settings" size={26} color="black" />
-          </TouchableOpacity>
-        </View>
-
-        {/* TAGS DE FILTRO */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
-          {tagsDisponiveis.map((tag, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.tagButton,
-                selectedTag === tag && styles.tagButtonAtivo,
-              ]}
-              onPress={() => filtrarPorTag(tag)}
-            >
-              <Text
-                style={[
-                  styles.tagText,
-                  selectedTag === tag && styles.tagTextAtivo,
-                ]}
-              >
-                {tag}
-              </Text>
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={{ flex: 1, paddingBottom: '20%'}}>
+        <ScrollView style={styles.container}>
+          {/* 🔍 BARRA DE PESQUISA */}
+          <View style={styles.searchBar}>
+            <Icon name="search" size={24} color="gray" />
+            <TextInput
+              placeholder="Pesquisar nome ou serviço..."
+              style={{ flex: 1, marginLeft: 8 }}
+              value={search}
+              onChangeText={handleSearch}
+              onSubmitEditing={buscarApertarEnter}
+              returnKeyType="search"
+            />
+            <TouchableOpacity onPress={toggleMenu}>
+              <Icon name="settings" size={26} color="black" />
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          </View>
 
-        {/* RESULTADOS */}
-        {results.length > 0 && (
-          <View style={{ marginBottom: 20 }}>
-            <Text style={styles.sectionTitle}>Resultados da Busca:</Text>
-            {results.map((userRes, index) => (
+          {/* TAGS DE FILTRO */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+            {tagsDisponiveis.map((tag, index) => (
               <TouchableOpacity
                 key={index}
-                style={styles.resultItem}
-                onPress={() =>
-                  navigation.navigate("perfilPP", { userId: userRes.id }) // Ajuste para rota correta
-                }
+                style={[
+                  styles.tagButton,
+                  selectedTag === tag && styles.tagButtonAtivo,
+                ]}
+                onPress={() => filtrarPorTag(tag)}
               >
-                <Text style={{ fontSize: 16, fontWeight: "bold" }}>
-                  {userRes.nome}
+                <Text
+                  style={[
+                    styles.tagText,
+                    selectedTag === tag && styles.tagTextAtivo,
+                  ]}
+                >
+                  {tag}
                 </Text>
-                <Text style={{ color: "gray" }}>{userRes.email}</Text>
-                {userRes.tags?.length > 0 && (
-                  <Text style={{ color: "#666", marginTop: 4 }}>
-                    Tags: {userRes.tags.join(", ")}
-                  </Text>
-                )}
               </TouchableOpacity>
             ))}
-          </View>
-        )}
-      </ScrollView>
+          </ScrollView>
 
-      {/* NAVBAR: Não precisa passar props, ela pega do AuthContext */}
-      <BarraNavegacao />
-
-      {/* MENU LATERAL */}
-      {menuVisible && (
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={toggleMenu}
-          style={styles.overlay}
-        >
-          <Animated.View
-            style={[
-              styles.sideMenu,
-              { transform: [{ translateX: slideAnim }] },
-            ]}
-          >
-            <View style={styles.menuHeader}>
-              <Text style={styles.menuTitle}>Menu</Text>
-              <TouchableOpacity onPress={toggleMenu}>
-                <Icon name="close" size={24} color="#000" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.menuContent}>
-              {menuItems.map((item, index) => (
+          {/* RESULTADOS */}
+          {results.length > 0 && (
+            <View style={{ marginBottom: 20 }}>
+              <Text style={styles.sectionTitle}>Resultados da Busca:</Text>
+              {results.map((userRes, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={styles.menuItem}
-                  onPress={() => {
-                    toggleMenu();
-                    if (item.route) {
-                        navigation.navigate(item.route, item.params || {});
-                    }
-                  }}
+                  style={styles.resultItem}
+                  onPress={() =>
+                    navigation.navigate("perfilPP", { userId: userRes.id }) // Ajuste para rota correta
+                  }
                 >
-                  <Icon name={item.icon} size={24} color="#444" />
-                  <Text style={styles.menuText}>{item.label}</Text>
+                  <Text style={{ fontSize: 16, fontWeight: "bold" }}>
+                    {userRes.nome}
+                  </Text>
+                  <Text style={{ color: "gray" }}>{userRes.email}</Text>
+                  {userRes.tags?.length > 0 && (
+                    <Text style={{ color: "#666", marginTop: 4 }}>
+                      Tags: {userRes.tags.join(", ")}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               ))}
             </View>
-          </Animated.View>
-        </TouchableOpacity>
-      )}
-    </View>
+          )}
+        </ScrollView>
+
+        {/* NAVBAR: Não precisa passar props, ela pega do AuthContext */}
+        <BarraNavegacao />
+
+        {/* MENU LATERAL */}
+        {menuVisible && (
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={toggleMenu}
+            style={styles.overlay}
+          >
+            <Animated.View
+              style={[
+                styles.sideMenu,
+                { transform: [{ translateX: slideAnim }] },
+              ]}
+            >
+              <View style={styles.menuHeader}>
+                <Text style={styles.menuTitle}>Menu</Text>
+                <TouchableOpacity onPress={toggleMenu}>
+                  <Icon name="close" size={24} color="#000" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.menuContent}>
+                {menuItems.map((item, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.menuItem}
+                    onPress={() => {
+                      toggleMenu();
+                      if (item.route) {
+                          navigation.navigate(item.route, item.params || {});
+                      }
+                    }}
+                  >
+                    <Icon name={item.icon} size={24} color="#444" />
+                    <Text style={styles.menuText}>{item.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </Animated.View>
+          </TouchableOpacity>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 

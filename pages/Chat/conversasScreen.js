@@ -11,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useChatService } from "../../hooks/useChatService";
 import BarraNavegacao from "../../components/navbar";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function conversasScreen() {
   const { chats, loading } = useChatService();
@@ -56,42 +57,44 @@ export default function conversasScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Cabeçalho */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Minhas Conversas</Text>
-        <Ionicons name="chatbubble-outline" size={24} color="black" />
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        {/* Cabeçalho */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Minhas Conversas</Text>
+          <Ionicons name="chatbubble-outline" size={24} color="black" />
+        </View>
+
+        {/* Botão inspirado na imagem (agora com ícone de pessoa) */}
+        <TouchableOpacity
+          style={styles.customButton}
+          onPress={() => navigation.navigate("chatScreen", {
+            chatId: item.id_chat,
+            outroUsuario: item.outroUsuario
+          })}
+        >
+          <Ionicons name="person-outline" size={20} color="#000000ff" />
+          <Text style={styles.customButtonText}>usuario</Text>
+        </TouchableOpacity>
+
+        {/* Lista de conversas */}
+        {loading ? (
+          <Text style={styles.loadingText}>Carregando conversas...</Text>
+        ) : (
+          <FlatList
+            data={chats}
+            keyExtractor={(item) => item.id_chat}
+            renderItem={renderItem}
+            ListEmptyComponent={() => (
+              <Text style={styles.emptyText}>
+                Você ainda não iniciou nenhum contrato.
+              </Text>
+            )}
+          />
+        )}
+        <BarraNavegacao />
       </View>
-
-      {/* Botão inspirado na imagem (agora com ícone de pessoa) */}
-      <TouchableOpacity
-        style={styles.customButton}
-        onPress={() => navigation.navigate("chatScreen", {
-          chatId: item.id_chat,
-          outroUsuario: item.outroUsuario
-        })}
-      >
-        <Ionicons name="person-outline" size={20} color="#000000ff" />
-        <Text style={styles.customButtonText}>usuario</Text>
-      </TouchableOpacity>
-
-      {/* Lista de conversas */}
-      {loading ? (
-        <Text style={styles.loadingText}>Carregando conversas...</Text>
-      ) : (
-        <FlatList
-          data={chats}
-          keyExtractor={(item) => item.id_chat}
-          renderItem={renderItem}
-          ListEmptyComponent={() => (
-            <Text style={styles.emptyText}>
-              Você ainda não iniciou nenhum contrato.
-            </Text>
-          )}
-        />
-      )}
-      <BarraNavegacao />
-    </View>
+    </SafeAreaView>
   );
 }
 
