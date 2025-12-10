@@ -16,6 +16,7 @@ import { ref, onValue, push, set } from "firebase/database";
 import { realtimeDB } from "../../firebase/firebaseService";
 import { useAuth } from "../../context/authContext";
 import MenuChat from "./MenuChat";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ChatScreen() {
   const route = useRoute();
@@ -113,62 +114,64 @@ export default function ChatScreen() {
   }
 
   return (
-    <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0} // Ajuste conforme seu Header
-    >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
+    <SafeAreaView style={{ flex: 1 }}>
+      <KeyboardAvoidingView 
+          style={styles.container} 
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0} // Ajuste conforme seu Header
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#333" />
+          </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>
-        {outroUsuario?.nome || "Chat"}
-        </Text>
+          <Text style={styles.headerTitle}>
+          {outroUsuario?.nome || "Chat"}
+          </Text>
 
-          {/* Botão do MenuChat */}
-        <TouchableOpacity
-          onPress={() => setMenuVisible(true)}
-          style={{ padding: 4 }}
-        >
-          <Ionicons name="menu" size={26} color="#333" />
-        </TouchableOpacity>
-      </View>
-        <MenuChat
-          visible={menuVisible}
-          onClose={() => setMenuVisible(false)}
-          chatId={chatId}
-          outroUsuario={outroUsuario}
-        />
-
-      <FlatList
-        ref={flatListRef}
-        data={mensagens}
-        renderItem={renderItem}
-        keyExtractor={(_, index) => index.toString()}
-        contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-      />
-
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite uma mensagem..."
-          value={novaMensagem}
-          onChangeText={setNovaMensagem}
-          multiline
-        />
-        <TouchableOpacity onPress={handleEnviarMensagem} disabled={!novaMensagem.trim()}>
-          <Ionicons 
-            name="send" 
-            size={26} 
-            color={novaMensagem.trim() ? "#007bff" : "#ccc"} 
+            {/* Botão do MenuChat */}
+          <TouchableOpacity
+            onPress={() => setMenuVisible(true)}
+            style={{ padding: 4 }}
+          >
+            <Ionicons name="menu" size={26} color="#333" />
+          </TouchableOpacity>
+        </View>
+          <MenuChat
+            visible={menuVisible}
+            onClose={() => setMenuVisible(false)}
+            chatId={chatId}
+            outroUsuario={outroUsuario}
           />
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+
+        <FlatList
+          ref={flatListRef}
+          data={mensagens}
+          renderItem={renderItem}
+          keyExtractor={(_, index) => index.toString()}
+          contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        />
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Digite uma mensagem..."
+            value={novaMensagem}
+            onChangeText={setNovaMensagem}
+            multiline
+          />
+          <TouchableOpacity onPress={handleEnviarMensagem} disabled={!novaMensagem.trim()}>
+            <Ionicons 
+              name="send" 
+              size={26} 
+              color={novaMensagem.trim() ? "#007bff" : "#ccc"} 
+            />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
 );
 }
 

@@ -11,6 +11,7 @@ import { realtimeDB } from "../../firebase/firebaseService";
 import { useAuth } from "../../context/authContext";
 import { atualizarContratoChat, recusarContratoChat, confirmarAgendamento } from "../../services/chatService";
 import { notificarRecusa } from "../../services/notification";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ------------------- NOTIFICAÇÕES -------------------
 export default function NotificationsPage() {
@@ -114,27 +115,29 @@ export default function NotificationsPage() {
   }
 
   return (
-    <View style={styles.principal}>
-      <FlatList
-        contentContainerStyle={{ padding: 16 }}
-        data={notificacoes}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-            <NotificationCard 
-                item={item} 
-                onAceitar={() => handleAceitar(item)} 
-                onRecusar={() => handleRecusar(item)}
-                onLimpar={() => handleLimpar(item.id)}
-            />
-        )}
-        ListEmptyComponent={
-            <Text style={{textAlign:'center', color:'#888', marginTop:20}}>
-                Nenhuma notificação no momento.
-            </Text>
-        }
-      />
-      <BarraNavegacao />
-    </View>
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={styles.principal}>
+        <FlatList
+          contentContainerStyle={{ padding: 16 }}
+          data={notificacoes}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+              <NotificationCard 
+                  item={item} 
+                  onAceitar={() => handleAceitar(item)} 
+                  onRecusar={() => handleRecusar(item)}
+                  onLimpar={() => handleLimpar(item.id)}
+              />
+          )}
+          ListEmptyComponent={
+              <Text style={{textAlign:'center', color:'#888', marginTop:20}}>
+                  Nenhuma notificação no momento.
+              </Text>
+          }
+        />
+        <BarraNavegacao />
+      </View>
+    </SafeAreaView>
   );
 }
 
