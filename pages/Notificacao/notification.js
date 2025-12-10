@@ -238,12 +238,19 @@ function NotificationCard({ item, onAceitar, onRecusar, onLimpar }) {
             )}
             
             {/* Ver Perfil (disponível em quase todos, menos se recusado para não poluir) */}
-            {!isRecusada && (
-                <TouchableOpacity style={[styles.btn, {backgroundColor:'#007BFF'}]} onPress={() => navigation.navigate("perfilA")}>
-                    <Text style={styles.btnText}>Ver Perfil</Text>
-                </TouchableOpacity>
-            )}
-
+            {/* Ver Perfil – aparece se tiver remetenteId */}
+            {!isRecusada && dadosDetalhados?.remetenteId && (
+                <TouchableOpacity
+                   style={[styles.btn, { backgroundColor: "#007BFF" }]}
+                   onPress={() =>
+                   navigation.navigate("perfilPP", {
+                   userId: dadosDetalhados.remetenteId
+              })
+          }
+      >
+                 <Text style={styles.btnText}>Ver Perfil</Text>
+               </TouchableOpacity>
+      )}
           </View>
         </View>
       </View>
