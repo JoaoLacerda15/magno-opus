@@ -1,251 +1,204 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, ActivityIndicator } from "react-native";
-import AuthService from "../../services/authService"; // <-- import da classe
+import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { ref, push } from "firebase/database";
+import { db } from "../../firebase/firebaseService";
 
-const authService = new AuthService(); // <-- instancia a classe
+const MAX_TAG_LENGTH = 40;
 
-export default function Register({ navigation }) {
+export default function Register() {
+  const [isWorker, setIsWorker] = useState(false);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [customTag, setCustomTag] = useState("");
   
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [userType, setUserType] = useState("comum"); // padrão comum
-  const [cpf, setCpf] = useState("");
-
-  const [cep, setCep] = useState("");
-  const [cidade, setCidade] = useState("");
-  const [estado, setEstado] = useState("");
-  
-  const [tags, setTags] = useState([]);
-
-  const buscarCep = async (cepDigitado) => {
-    // Remove caracteres não numéricos
-    const cepLimpo = cepDigitado.replace(/\D/g, "");
-
-    setCep(cepDigitado); // Atualiza o visual enquanto digita
-
-    // Só busca se tiver 8 dígitos
-    if (cepLimpo.length === 8) {
-      try {
-        const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-        const data = await response.json();
-
-        if (data.erro) {
-          Alert.alert("Atenção", "CEP não encontrado.");
-          return;
-        }
-
-        // Preenche automaticamente
-        setCidade(data.localidade);
-        setEstado(data.uf);
-      } catch (error) {
-        console.error(error);
-        Alert.alert("Erro", "Falha ao buscar CEP.");
-      }
-    }
-  };
-
-  const tagsDisponiveis = [
-    "limpeza",
-    "pedreiro",
-    "técnico",
-    "jardim",
-    "pintura",
-    "reforma",
-    "Marceneiro", 
-    "Encanador", 
-    "Eletricista",
+  const defaultTags = [
+    "Elétrica",
+    "Pintura",
+    "Encanamento",
+    "Jardinagem",
+    "Reformas",
+    "Frete",
+    "Aulas"
   ];
 
-  const toggleTag = (tag) => {
-    setTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+  function toggleTag(tag) {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter((t) => t !== tag));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  }
+  function handleCustomTagChange(text) {
+  if (text.length <= MAX_TAG_LENGTH) {
+    setCustomTag(text);
+  } else {
+    Alert.alert(
+      "Limite excedido",
+      `A tag pode ter no máximo ${MAX_TAG_LENGTH} caracteres.`
     );
-  };
+  }
+ }
 
-  const handleRegister = async () => {
 
-    if (!nome || !email || !password) {
-        Alert.alert("Erro", "Preencha os campos obrigatórios");
-        return;
+  function handleAddCustomTag() {
+    const newTag = customTag.trim();
+
+    if (newTag.length === 0) {
+      Alert.alert("Tag vazia", "Digite um nome para a tag.");
+      return;
     }
 
-    setIsLoading(true);
+    if (newTag.length > MAX_TAG_LENGTH) {
+      Alert.alert(
+        "Tag muito longa",
+        `A tag pode ter no máximo ${MAX_TAG_LENGTH} caracteres.`
+      );
+      return;
+    }
 
+    // Se já existe na lista padrão ou escolhidas
+    if (selectedTags.includes(newTag) || defaultTags.includes(newTag)) {
+      Alert.alert("Tag já existe", "Essa tag já está disponível.");
+      return;
+    }
+
+    // ADICIONA IMEDIATAMENTE NA LISTA VISUAL
+    setSelectedTags([...selectedTags, newTag]);
+
+    setCustomTag("");
+  }
+
+  async function handleRegister() {
+    // Aqui entra toda sua lógica atual de registro
+    // Somente exemplo de salvamento no Firebase:
     try {
-      await authService.register({
-        nome,
-        email,
-        password,
-        userType,
-        cpf,
-        cep,
-        cidade,
-        estado,
-        tags: userType === "trabalhador" ? tags : [], // tags só pro trabalhador
-      });
+      const userRef = ref(db, "usuarios/");
+      const newUser = push(userRef);
 
-      Alert.alert("Sucesso", "Conta criada!");
-      navigation.navigate("login");
+      await push(ref(db, `usuarios/${newUser.key}/tags`), selectedTags);
+
+      Alert.alert("Sucesso", "Usuário registrado!");
     } catch (error) {
-      Alert.alert("Erro", error.message);
-    } finally {
-      setIsLoading(false);
+      console.log(error);
+      Alert.alert("Erro", "Não foi possível registrar.");
     }
-  };
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Criar Conta</Text>
+    <View style={{ padding: 20 }}>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Nome"
-        value={nome}
-        onChangeText={setNome}
-      />
+      {/* MARCADOR DE USUÁRIO TRABALHADOR */}
+      <TouchableOpacity
+        style={{
+          padding: 10,
+          backgroundColor: isWorker ? "#007AFF" : "#DDD",
+          marginBottom: 20,
+          borderRadius: 10,
+        }}
+        onPress={() => setIsWorker(!isWorker)}
+      >
+        <Text style={{ color: "#fff", textAlign: "center" }}>
+          {isWorker ? "Sou Trabalhador ✓" : "Marcar como Trabalhador"}
+        </Text>
+      </TouchableOpacity>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-      />
+      {/* TAGS SÓ APARECEM SE FOR TRABALHADOR */}
+      {isWorker && (
+        <View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Senha"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="CPF"
-        value={cpf}
-        onChangeText={setCpf}
-      />
-
-      {/* --- CAMPO DE CEP COM BUSCA AUTOMÁTICA --- */}
-        <TextInput
-          style={styles.input}
-          placeholder="CEP (apenas números)"
-          value={cep}
-          onChangeText={(text) => buscarCep(text)} // Chama a função a cada digito
-          keyboardType="numeric"
-          maxLength={9}
-        />
-
-        <View style={styles.row}>
-          <TextInput
-            style={[styles.input, styles.cityInput]}
-            placeholder="Cidade"
-            value={cidade}
-            onChangeText={setCidade} // Deixa editável caso a API falhe
-          />
-
-          <TextInput
-            style={[styles.input, styles.stateInput]}
-            placeholder="UF"
-            value={estado}
-            onChangeText={setEstado}
-            maxLength={2}
-          />
-        </View>
-
-      {/* Tipo de usuário */}
-      <View style={styles.userTypeContainer}>
-        <TouchableOpacity
-          style={[styles.userTypeButton, userType === "comum" && styles.userTypeButtonSelected]}
-          onPress={() => setUserType("comum")}
-        >
-          <Text style={[styles.userTypeText, userType === "comum" && styles.userTypeTextSelected]}>
-            Comum
+          <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}>
+            Selecione suas Tags:
           </Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.userTypeButton, userType === "trabalhador" && styles.userTypeButtonSelected]}
-          onPress={() => setUserType("trabalhador")}
-        >
-          <Text style={[styles.userTypeText, userType === "trabalhador" && styles.userTypeTextSelected]}>
-            Trabalhador
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Tags só aparecem para trabalhador */}
-      {userType === "trabalhador" && (
-        <>
-          <Text style={styles.label}>Escolha suas tags:</Text>
-          <View style={styles.tagContainer}>
-            {tagsDisponiveis.map((tag) => (
+          {/* LISTA DE TAGS PADRÃO */}
+          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+            {defaultTags.map((tag) => (
               <TouchableOpacity
                 key={tag}
-                style={[styles.tag, tags.includes(tag) && styles.tagSelected]}
                 onPress={() => toggleTag(tag)}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: "#ccc",
+                  margin: 5,
+                  backgroundColor: selectedTags.includes(tag)
+                    ? "#007AFF"
+                    : "#F1F1F1",
+                }}
               >
-                <Text style={[styles.tagText, tags.includes(tag) && styles.tagTextSelected]}>
+                <Text
+                  style={{
+                    color: selectedTags.includes(tag) ? "#fff" : "#333",
+                    fontWeight: "bold",
+                  }}
+                >
                   {tag}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
-        </>
+
+          {/* CAMPO DE NOVA TAG */}
+          <View style={{ marginTop: 20 }}>
+            <Text style={{ fontSize: 16, marginBottom: 5 }}>
+              Criar nova tag:
+            </Text>
+
+            <TextInput
+                 value={customTag}
+                 onChangeText={setCustomTag}
+                 placeholder="Digite a nova tag (máx. 40 caracteres)"
+                 maxLength={40}
+                 style={{
+                 borderWidth: 1,
+                 borderColor: "#ccc",
+                 padding: 10,
+                 borderRadius: 10,
+              }}
+          />
+          <Text style={{ color: "#555", fontSize: 12 }}>
+            {customTag.length}/{MAX_TAG_LENGTH}
+          </Text>
+
+            <TouchableOpacity
+              onPress={handleAddCustomTag}
+              style={{
+                secondOrange: '#F67F07',
+                padding: 10,
+                marginTop: 10,
+                borderRadius: 10,
+              }}
+            >
+              <Text
+                style={{
+                  textAlign: "center",
+                  color: "#fff",
+                  fontWeight: "bold",
+                }}
+              >
+                Adicionar Tag
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+        </View>
       )}
 
-      {/* 5. BOTÃO COM LOADING */}
-      <TouchableOpacity 
-        style={[styles.button, isLoading && styles.buttonDisabled]} 
+      <TouchableOpacity
         onPress={handleRegister}
-        disabled={isLoading} // Bloqueia clique
+        style={{
+          backgroundColor: "#007AFF",
+          padding: 12,
+          marginTop: 40,
+          borderRadius: 10,
+        }}
       >
-        {isLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
-        ) : (
-            <Text style={styles.buttonText}>Registrar</Text>
-        )}
+        <Text style={{ color: "white", textAlign: "center", fontSize: 16 }}>
+          Registrar
+        </Text>
       </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => navigation.navigate("login")}>
-        <Text style={styles.link}>Já tem conta? Entrar</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 20, justifyContent: "center" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
-  input: { borderWidth: 1, borderColor: "#ccc", padding: 10, marginBottom: 10, borderRadius: 8 },
-  button: { backgroundColor: "#007AFF", padding: 15, borderRadius: 8, marginTop: 10 },
-  buttonText: { color: "#fff", textAlign: "center", fontWeight: "bold" },
-  link: { color: "#007AFF", textAlign: "center", marginTop: 15 },
-  userTypeContainer: { flexDirection: "row", justifyContent: "space-around", marginVertical: 10 },
-  userTypeButton: { paddingVertical: 10, paddingHorizontal: 20, borderWidth: 1, borderColor: "#007AFF", borderRadius: 8 },
-  userTypeButtonSelected: { backgroundColor: "#007AFF" },
-  userTypeText: { color: "#007AFF", fontWeight: "bold" },
-  userTypeTextSelected: { color: "#fff" },
-  label: { marginBottom: 5, fontWeight: "bold", fontSize: 16 },
-  tagContainer: { flexDirection: "row", flexWrap: "wrap", marginBottom: 10 },
-  tag: { borderWidth: 1, borderColor: "#007AFF", paddingVertical: 5, paddingHorizontal: 10, borderRadius: 20, margin: 5 },
-  tagSelected: { backgroundColor: "#007AFF" },
-  tagText: { color: "#007AFF" },
-  tagTextSelected: { color: "#fff" },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  cityInput: {
-    flex: 3, // Ocupa 75% da linha
-    marginRight: 10,
-  },
-  stateInput: {
-    flex: 1, // Ocupa 25% da linha
-  },
-  buttonDisabled: { backgroundColor: "#8abdfc" },
-});
