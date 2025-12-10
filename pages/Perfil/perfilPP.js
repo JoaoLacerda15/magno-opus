@@ -304,94 +304,48 @@ export default function PerfilPP() {
   // 🖼️ Renderização Principal do Perfil
   // ----------------------------------------------------
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#1565C0" }}>
+      <View style={{ flex: 1, backgroundColor: "#f5f5f5" }}>
           <ScrollView style={styles.scrollView}>
             
-            {/* Header */}
             <View style={styles.header}>
-              <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-              >
+              <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
                 <Ionicons name="arrow-back" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
 
-            {/* Profile Section */}
             <View style={styles.profileSection}>
-              {/* Avatar */}
               <View style={styles.avatarContainer}>
-                {perfilExibido?.avatar ? (
-                  <Image 
-                    source={{ uri: perfilExibido.avatar }} 
-                    style={styles.avatarImage}
-                  />
-                ) : (
-                  // Usando a primeira letra do nome como fallback (opcional)
-                  <Text style={styles.avatarText}>
-                    {perfilExibido.nome ? perfilExibido.nome[0].toUpperCase() : '?'}
-                  </Text>
-                )}
+                {perfilExibido?.avatar ? (<Image source={{ uri: perfilExibido.avatar }} style={styles.avatarImage}/>) : (<Text style={styles.avatarText}>{perfilExibido.nome ? perfilExibido.nome[0].toUpperCase() : '?'}</Text>)}
               </View>
 
-              {/* Nome */}
-              <Text style={{ fontSize: 20, fontWeight: "bold", color: "#222" }}>
-                {perfilExibido?.nome || "Usuário"}
-              </Text>
+              <Text style={{ fontSize: 20, fontWeight: "bold", color: "#222" }}>{perfilExibido?.nome}</Text>
+              <Text style={styles.jobTitle}>{profissao}</Text>
+              <Text style={styles.location}>{perfilExibido?.cidade || "Localização não informada"}</Text>
 
-              {/* Profissão via TAG */}
-              <Text style={styles.jobTitle}>
-                {profissao}
-              </Text>
-
-              {/* Localização */}
-              <Text style={styles.location}>
-                {perfilExibido?.cidade && perfilExibido?.estado
-                  ? `${perfilExibido.cidade} - ${perfilExibido.estado}`
-                  : `CEP: '${perfilExibido?.cep}'`|| "Localização não informada"}
-              </Text>
-
-              {/* Sobre mim */}
               <View style={styles.aboutSection}>
                 <Text style={styles.aboutTitle}>Sobre mim:</Text>
-
-                <Text style={styles.aboutText}>
-                  {perfilExibido?.bio || "Nenhuma descrição informada"}
-                </Text>
+                <Text style={styles.aboutText}>{perfilExibido?.bio || "Sem descrição."}</Text>
               </View>
 
-              {/* Botões */}
+              {/* --- BOTÕES MODIFICADOS --- */}
               <View style={styles.buttonGrid}>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Text style={styles.buttonText}>Portfólio</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Text style={styles.buttonText}>Comentários</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
+                
+                {/* 1. Botão AGENDA (Abre a agenda DO USUÁRIO PERFILADO) */}
+                <TouchableOpacity 
+                    style={styles.actionButton}
+                    onPress={() => navigation.navigate('calendario', { userId: targetUserId })}
+                >
                   <Text style={styles.buttonText}>Agenda</Text>
                 </TouchableOpacity>
 
-                {/* SÓ MOSTRA O BOTÃO CONVERSAR SE NÃO FOR EU MESMO */}
-                {/* LÓGICA DOS BOTÕES DE AÇÃO */}
-                
-                {/* CASO 1: É OUTRA PESSOA -> MOSTRA "CONVERSAR" */}
-                {userLogado && (userLogado.id !== perfilExibido.id && userLogado.uid !== perfilExibido.id) && (
-                  <TouchableOpacity 
-                      style={styles.actionButton}
-                      onPress={abrirModalProposta}
-                  >
+                {/* 2. Botão Dinâmico (Conversar OU Deslogar) */}
+                {userLogado && (userLogado.id !== perfilExibido.id && userLogado.uid !== perfilExibido.id) ? (
+                  <TouchableOpacity style={styles.actionButton} onPress={abrirModalProposta}>
                       <Text style={styles.buttonText}>Conversar</Text>
                   </TouchableOpacity>
-                )}
-
-                {/* CASO 2: SOU EU MESMO -> MOSTRA "DESLOGAR" EM VERMELHO */}
-                {userLogado && (userLogado.id === perfilExibido.id || userLogado.uid === perfilExibido.id) && (
-                  <TouchableOpacity 
-                      style={[styles.actionButton, { backgroundColor: '#D32F2F' }]} // Vermelho
-                      onPress={handleLogout}
-                  >
+                ) : (
+                  <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#D32F2F' }]} onPress={handleLogout}>
                       <Text style={styles.buttonText}>Deslogar</Text>
                   </TouchableOpacity>
                 )}
@@ -399,49 +353,28 @@ export default function PerfilPP() {
               </View>
             </View>
 
-            {/* --- MODAL DE PROPOSTA --- */}
-            <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
-              <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
-                  <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>Nova Proposta ({etapa}/4)</Text>
-                    <TouchableOpacity onPress={() => setModalVisible(false)}><Ionicons name="close" size={24} color="#333" /></TouchableOpacity>
-                  </View>
-
-                  <View style={styles.modalBody}>
-                    {renderEtapaContent()}
-                  </View>
-
-                  <View style={styles.modalFooter}>
-                    {etapa > 1 && (
-                      <TouchableOpacity style={styles.btnSecondary} onPress={() => setEtapa(etapa - 1)}>
-                        <Text style={styles.btnTextSecondary}>Voltar</Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity 
-                      style={styles.btnPrimary} 
-                      onPress={etapa === 4 ? finalizarProposta : avancarEtapa}
-                      disabled={loadingEnvio}
-                    >
-                      {loadingEnvio ? <ActivityIndicator color="#fff"/> : <Text style={styles.btnTextPrimary}>{etapa === 4 ? "Enviar Proposta" : "Próximo"}</Text>}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
+            {/* Modal e Analytics mantidos... */}
+            <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={()=>setModalVisible(false)}>
+                <View style={styles.modalOverlay}><View style={styles.modalContent}>
+                    <View style={styles.modalHeader}><Text style={styles.modalTitle}>Proposta</Text><TouchableOpacity onPress={()=>setModalVisible(false)}><Ionicons name="close" size={24}/></TouchableOpacity></View>
+                    <View style={styles.modalBody}>{renderEtapaContent()}</View>
+                    <View style={styles.modalFooter}>
+                        {etapa>1 && <TouchableOpacity style={styles.btnSecondary} onPress={()=>setEtapa(etapa-1)}><Text>Voltar</Text></TouchableOpacity>}
+                        <TouchableOpacity style={styles.btnPrimary} onPress={etapa===4?finalizarProposta:avancarEtapa} disabled={loadingEnvio}><Text style={styles.btnTextPrimary}>{loadingEnvio?"...":etapa===4?"Enviar":"Próximo"}</Text></TouchableOpacity>
+                    </View>
+                </View></View>
             </Modal>
 
-            {/* Analytics Section (mantida como estava) */}
             <View style={styles.analyticsSection}>
               <View style={styles.analyticsTitleContainer}>
                 <Text style={styles.analyticsTitle}>Análise</Text>
                 <MaterialCommunityIcons name="chart-bar" size={20} color="#333" />
               </View>
-              {/* ... Itens de Análise ... */}
             </View>
           </ScrollView>
         <BarraNavegacao />
       </View>
-      </SafeAreaView>
+    </SafeAreaView>
   );
 }
 
