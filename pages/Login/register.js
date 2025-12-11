@@ -1,12 +1,16 @@
 import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform } from "react-native";
+import { KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, StyleSheet } from "react-native";
-import { ref, push } from "firebase/database";
-import { db } from "../../firebase/firebaseService";
+import AuthService from "../../services/authService";
+import { useNavigation } from "@react-navigation/native";
+
+const authService = new AuthService();
 
 const MAX_TAG_LENGTH = 40;
 
 export default function Register() {
+  const navigation = useNavigation();
+
   // Estados para os campos do formulário
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -20,6 +24,59 @@ export default function Register() {
   const [isWorker, setIsWorker] = useState(false);
   const [selectedTags, setSelectedTags] = useState([]);
   const [customTag, setCustomTag] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loadingCep, setLoadingCep] = useState(false);
+
+  const handleBlurCep = async () => {
+    const cepLimpo = cep.replace(/\D/g, ''); // Remove traços/pontos
+
+    if (cepLimpo.length !== 8) return; // Só busca se tiver 8 dígitos
+
+    setLoadingCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await response.json();
+
+      if (data.erro) {
+        Alert.alert("Erro", "CEP não encontrado.");
+        setCidade("");
+        setUf("");
+      } else {
+        setCidade(data.localidade || "");
+        setUf(data.uf || "");
+      }
+    } catch (error) {
+      Alert.alert("Erro", "Falha ao buscar CEP. Verifique sua conexão.");
+      console.error(error);
+    } finally {
+      setLoadingCep(false);
+    }
+  };
+
+  function validarCPF(cpf) {
+  cpf = cpf.replace(/[^\d]+/g, ''); // Remove caracteres não numéricos
+  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
+
+  let soma = 0;
+  let resto;
+
+  for (let i = 1; i <= 9; i++) 
+    soma = soma + parseInt(cpf.substring(i - 1, i)) * (11 - i);
+  
+  resto = (soma * 10) % 11;
+  if ((resto === 10) || (resto === 11)) resto = 0;
+  if (resto !== parseInt(cpf.substring(9, 10))) return false;
+
+  soma = 0;
+  for (let i = 1; i <= 10; i++) 
+    soma = soma + parseInt(cpf.substring(i - 1, i)) * (12 - i);
+  
+  resto = (soma * 10) % 11;
+  if ((resto === 10) || (resto === 11)) resto = 0;
+  if (resto !== parseInt(cpf.substring(10, 11))) return false;
+
+  return true;
+}
 
   // Tags padrão ajustadas para serem mais parecidas com a imagem de exemplo
   const defaultTags = [
@@ -43,15 +100,10 @@ export default function Register() {
   }
 
   function handleCustomTagChange(text) {
-    // A lógica de alerta já está aqui
     if (text.length <= MAX_TAG_LENGTH) {
       setCustomTag(text);
     } else {
-      Alert.alert(
-        "Limite excedido",
-        `A tag pode ter no máximo ${MAX_TAG_LENGTH} caracteres.`,
-        [{ text: "OK" }]
-      );
+      Alert.alert("Limite excedido", `Máximo ${MAX_TAG_LENGTH} caracteres.`);
     }
   }
 
@@ -82,32 +134,44 @@ export default function Register() {
   }
 
   async function handleRegister() {
+    if (!nome || !email || !senha) {
+      return Alert.alert("Erro", "Nome, Email e Senha são obrigatórios.");
+    }
+
+    if (cpf && !validarCPF(cpf)) {
+      return Alert.alert("CPF Inválido", "Por favor, digite um CPF válido.");
+    }
+
+    setLoading(true);
+
     try {
-      // Exemplo de como você usaria os novos estados
-      // if (!nome || !email || !senha) {
-      //   Alert.alert("Erro", "Preencha todos os campos obrigatórios.");
-      //   return;
-      // }
+      const dadosUsuario = {
+          nome: nome,
+          email: email,
+          password: senha,
+          userType: isWorker ? "trabalhador" : "comum",
+          cpf: cpf,
+          cep: cep,
+          cidade: cidade,
+          estado: uf,
+          tags: isWorker ? selectedTags : []
+      };
 
-      const userRef = ref(db, "usuarios/");
-      const newUser = push(userRef);
-
-      await push(userRef, {
-        nome,
-        email,
-        senha,
-        cpf,
-        cep,
-        cidade,
-        uf,
-        isWorker,
-        tags: isWorker ? selectedTags : [],
-      });
+      const resultado = await authService.register(dadosUsuario);
       
-      Alert.alert("Sucesso", "Usuário registrado!");
+      console.log("Usuário criado com ID:", resultado.id);
+      Alert.alert("Sucesso", "Conta criada!", [
+          { 
+            text: "Ir para Login", 
+            onPress: () => navigation.navigate("login")
+          }
+      ]);
+
     } catch (error) {
-      console.log(error);
-      Alert.alert("Erro", "Não foi possível registrar.");
+      console.error(error);
+      Alert.alert("Erro", error.message || "Não foi possível registrar.");
+    } finally {
+        setLoading(false);
     }
   }
 
@@ -122,138 +186,112 @@ export default function Register() {
           contentContainerStyle={styles.scrollContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* TÍTULO DA TELA */}
           <Text style={styles.title}>Criar Conta</Text>
 
-          {/* CAMPOS DE INPUT */}
-          <TextInput
-            style={styles.input}
-            placeholder="Nome"
-            value={nome}
-            onChangeText={setNome}
+          <TextInput style={styles.input} placeholder="Nome" value={nome} onChangeText={setNome} />
+          
+          <TextInput 
+            style={styles.input} 
+            placeholder="Email" 
+            keyboardType="email-address" 
+            value={email} 
+            onChangeText={setEmail} 
+            autoCapitalize="none" 
           />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
+          
+          <TextInput 
+            style={styles.input} 
+            placeholder="Senha" 
+            secureTextEntry={true} 
+            value={senha} 
+            onChangeText={setSenha} 
           />
-          <TextInput
-            style={styles.input}
-            placeholder="Senha"
-            secureTextEntry={true}
-            value={senha}
-            onChangeText={setSenha}
+          
+          <TextInput 
+            style={styles.input} 
+            placeholder="CPF" 
+            keyboardType="numeric" 
+            value={cpf} 
+            onChangeText={setCpf} 
+            maxLength={14} // Máscara simples visualmente (opcional)
           />
-          <TextInput
-            style={styles.input}
-            placeholder="CPF"
-            keyboardType="numeric"
-            value={cpf}
-            onChangeText={setCpf}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="CEP (apenas números)"
-            keyboardType="numeric"
-            value={cep}
-            onChangeText={setCep}
-          />
-
-          {/* CIDADE E UF (em linha) */}
-          <View style={styles.cityUfContainer}>
-            <TextInput
-              style={[styles.input, styles.cityInput]}
-              placeholder="Cidade"
-              value={cidade}
-              onChangeText={setCidade}
+          
+          {/* CAMPO DE CEP COM BUSCA AUTOMÁTICA */}
+          <View>
+            <TextInput 
+                style={styles.input} 
+                placeholder="CEP (apenas números)" 
+                keyboardType="numeric" 
+                value={cep} 
+                onChangeText={setCep}
+                maxLength={9}
+                onBlur={handleBlurCep} // Busca quando sai do campo
             />
-            <TextInput
-              style={[styles.input, styles.ufInput]}
-              placeholder="UF"
-              maxLength={2}
-              autoCapitalize="characters"
-              value={uf}
-              onChangeText={setUf}
+            {/* Indicador de carregamento do CEP dentro do input (opcional visualmente) */}
+            {loadingCep && (
+                <View style={{position: 'absolute', right: 15, top: 15}}>
+                    <ActivityIndicator size="small" color="#007AFF" />
+                </View>
+            )}
+          </View>
+
+          <View style={styles.cityUfContainer}>
+            <TextInput 
+                style={[styles.input, styles.cityInput]} 
+                placeholder="Cidade" 
+                value={cidade} 
+                onChangeText={setCidade} 
+                editable={!loadingCep} // Bloqueia enquanto carrega
+            />
+            <TextInput 
+                style={[styles.input, styles.ufInput]} 
+                placeholder="UF" 
+                maxLength={2} 
+                autoCapitalize="characters" 
+                value={uf} 
+                onChangeText={setUf}
+                editable={!loadingCep}
             />
           </View>
 
-          {/* SELETOR COMUM / TRABALHADOR */}
+          {/* Seletor Tipo */}
           <View style={styles.userTypeContainer}>
-            {/* Botão Comum */}
             <TouchableOpacity
-              style={[
-                styles.userTypeButton,
-                !isWorker ? styles.activeButton : styles.inactiveButton,
-                { marginRight: 10 },
-              ]}
+              style={[styles.userTypeButton, !isWorker ? styles.activeButton : styles.inactiveButton, { marginRight: 10 }]}
               onPress={() => setIsWorker(false)}
             >
-              <Text style={!isWorker ? styles.activeText : styles.inactiveText}>
-                Comum
-              </Text>
+              <Text style={!isWorker ? styles.activeText : styles.inactiveText}>Comum</Text>
             </TouchableOpacity>
 
-            {/* Botão Trabalhador */}
             <TouchableOpacity
-              style={[
-                styles.userTypeButton,
-                isWorker ? styles.activeButton : styles.inactiveButton,
-              ]}
+              style={[styles.userTypeButton, isWorker ? styles.activeButton : styles.inactiveButton]}
               onPress={() => setIsWorker(true)}
             >
-              <Text style={isWorker ? styles.activeText : styles.inactiveText}>
-                Trabalhador
-              </Text>
+              <Text style={isWorker ? styles.activeText : styles.inactiveText}>Trabalhador</Text>
             </TouchableOpacity>
           </View>
           
-          {/* TAGS SÓ APARECEM SE FOR TRABALHADOR */}
+          {/* Tags (Só se for trabalhador) */}
           {isWorker && (
             <View style={{ marginTop: 20 }}>
               <Text style={styles.tagTitle}>Escolha suas tags:</Text>
-
-              {/* LISTA DE TAGS PADRÃO e SELECIONADAS */}
               <View style={styles.tagsContainer}>
                 {defaultTags.map((tag) => (
                   <TouchableOpacity
                     key={tag}
                     onPress={() => toggleTag(tag)}
-                    style={[
-                      styles.tagButton,
-                      selectedTags.includes(tag) ? styles.selectedTag : styles.unselectedTag,
-                    ]}
+                    style={[styles.tagButton, selectedTags.includes(tag) ? styles.selectedTag : styles.unselectedTag]}
                   >
-                    <Text
-                      style={[
-                        styles.tagText,
-                        selectedTags.includes(tag) ? styles.selectedTagText : styles.unselectedTagText,
-                      ]}
-                    >
-                      {tag}
-                    </Text>
+                    <Text style={[styles.tagText, selectedTags.includes(tag) ? styles.selectedTagText : styles.unselectedTagText]}>{tag}</Text>
                   </TouchableOpacity>
                 ))}
-                
-                {/* LISTA DE TAGS PERSONALIZADAS SELECIONADAS */}
-                {selectedTags
-                    .filter(tag => !defaultTags.includes(tag))
-                    .map((tag) => (
-                        <TouchableOpacity
-                            key={tag}
-                            onPress={() => toggleTag(tag)}
-                            style={[styles.tagButton, styles.customTagButton]}
-                        >
-                            <Text style={styles.selectedTagText}>
-                                {tag}
-                            </Text>
-                        </TouchableOpacity>
+                {selectedTags.filter(tag => !defaultTags.includes(tag)).map((tag) => (
+                    <TouchableOpacity key={tag} onPress={() => toggleTag(tag)} style={[styles.tagButton, styles.customTagButton]}>
+                        <Text style={styles.selectedTagText}>{tag}</Text>
+                    </TouchableOpacity>
                 ))}
-
               </View>
 
-              {/* CAMPO DE NOVA TAG - Modificado aqui */}
               <View style={{ marginTop: 10 }}>
                 <TextInput
                   value={customTag}
@@ -262,43 +300,32 @@ export default function Register() {
                   maxLength={MAX_TAG_LENGTH}
                   style={[styles.input, { marginBottom: 5 }]} 
                 />
-                
-                {/* Contador de caracteres (Adicionado) */}
-                <Text style={styles.charLimitText}>
-                  {customTag.length}/{MAX_TAG_LENGTH}
-                </Text>
-
-                {/* BOTÃO ADICIONAR TAG */}
-                <TouchableOpacity
-                  onPress={handleAddCustomTag}
-                  style={[styles.addTagButton, { marginTop: 10 }]}
-                >
+                <Text style={styles.charLimitText}>{customTag.length}/{MAX_TAG_LENGTH}</Text>
+                <TouchableOpacity onPress={handleAddCustomTag} style={[styles.addTagButton, { marginTop: 10 }]}>
                   <Text style={styles.addTagText}>Adicionar Tag</Text>
                 </TouchableOpacity>
               </View>
             </View>
           )}
 
-          {/* BOTÃO FINAL */}
           <TouchableOpacity
             onPress={handleRegister}
-            style={styles.registerButton}
+            style={[styles.registerButton, loading && {opacity: 0.7}]}
+            disabled={loading}
           >
-            <Text style={styles.registerButtonText}>
-              Registrar
-            </Text>
+            {loading ? (
+                <ActivityIndicator color="#fff" />
+            ) : (
+                <Text style={styles.registerButtonText}>Registrar</Text>
+            )}
           </TouchableOpacity>
           
-          {/* LINK ENTRAR */}
           <TouchableOpacity 
-            onPress={() => Alert.alert("Entrar", "Navegar para a tela de Login")}
+            onPress={() => navigation?.navigate("login")} 
             style={styles.loginLinkContainer}
           >
-            <Text style={styles.loginLinkText}>
-              Já tem conta? Entrar
-            </Text>
+            <Text style={styles.loginLinkText}>Já tem conta? Entrar</Text>
           </TouchableOpacity>
-
 
         </ScrollView>
       </View>
