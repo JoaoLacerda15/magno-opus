@@ -4,8 +4,7 @@
     "slug": "magnoopus",
     "version": "1.0.0",
     "orientation": "portrait",
-  "icon": "./assets/icon.png",
-
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -19,10 +18,17 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff",
-        "permissions": ["CAMERA", "MEDIA_LIBRARY"]
+        "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+      ],
+      "package": "com.berneudo.magnoopus"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,6 +41,11 @@
           "photosPermission": "The app accesses your photos to let you share them with your friends."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f376a585-2abf-45e1-926c-31dd89e0077d"
+      }
+    }
   }
 }
